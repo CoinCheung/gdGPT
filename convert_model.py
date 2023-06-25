@@ -11,12 +11,6 @@ from transformers import LlamaForCausalLM, LlamaTokenizer, LlamaConfig
 
 
 
-'''
-    1. 下载hg的权重
-    2. 把hg的权重 转成可以用pp加载的形式
-    3. 把pp训练的结果转成hg的权重
-'''
-
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(dest="command")
 download_parser = subparsers.add_parser('download')

@@ -6,13 +6,10 @@
 "optimizer": {
     "type": "AdamW",
     "params": {
-      "lr": 1e-5,
-      "betas": [
-        0.9,
-        0.999
-      ],
-      "eps": 1e-8,
-      "weight_decay": 4e-5
+        "lr": 1e-5,
+        "betas": [0.9, 0.999],
+        "weight_decay": 4e-5,
+        "eps": 1e-8
     }
 },
 "scheduler": {
@@ -42,59 +39,24 @@
 "zero_optimization": {
 },
 
-"activation_checkpointing": {
-    "partition_activations": false,
-    "cpu_checkpointing": false,
-    "contiguous_memory_optimization": false,
-    "number_checkpoints": null,
-    "synchronize_checkpoint_boundary": false,
-    "profile": false
+
+"model_topo": {
+    "process_topology": {
+        "axis": ["pipe", "data"],
+        "dims": [8, 1]
+    },
+    "parts": [1, 5, 5, 5, 5, 5, 5, 1] 
 },
 
-"compression_training": {
-    "activation_quantization": {
-        "shared_parameters":{
-            "enabled": false,
-            "quantization_type": "symmetric",
-            "range_calibration": "dynamic",
-            "schedule_offset": 20
-        },
-        "different_groups":{
-          "aq1": {
-            "params": {
-              "bits": 8
-            },
-            "modules": ["self_attention"," mlp"]
-          }
-        }
-    },
-    "weight_quantization": {
-        "shared_parameters":{
-            "enabled": false,
-            "quantizer_kernel": false,
-            "schedule_offset": 20,
-            "quantize_groups": 64,
-            "quantize_verbose": false,
-            "quantization_type": "symmetric",
-            "quantize_weight_in_forward": false,
-            "rounding": "nearest",
-            "fp16_mixed_quantize":{
-                "enabled": false,
-                "quantize_change_ratio": 1
-            }
-        },
-        "different_groups":{
-            "wq1": {
-                "params": {
-                    "start_bits": 8, 
-                    "target_bits": 8,
-                    "quantization_period": 0
-                },
-            "modules": ["self_attention"," mlp"]
-            }
-        }
-    }
-}
+"from_scratch": false,
+"model_path": "./saved_bloomz_7b1_mt_pp",
+"save_path": "./checkpoints/",
+
+"n_epoches": 3,
+"max_seq_len": 1024,
+"data_path": "./dataset.json",
+
+"use_grad_ckpt": false
 
 
 }

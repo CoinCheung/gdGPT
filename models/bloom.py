@@ -48,27 +48,21 @@ class BloomAlibiEmbedding(nn.Module):
 class BloomBlockTupleIO(BloomBlock):
 
     def __init__(self, config, load_path=None,
-            ret_only_hidden=False, gradient_checkpointing=False):
+            gradient_checkpointing=False):
         self.config = config
         super(BloomBlockTupleIO, self).__init__(config)
         if load_path: self.load_state_dict(torch.load(load_path))
-        self.ret_only_hidden = ret_only_hidden
         self.alibi_emb = BloomAlibiEmbedding(self.config.n_head)
         self.gradient_checkpointing = gradient_checkpointing
 
     def forward(self, inputs):
         hidden_states, attention_mask = inputs
-        ## 原本是terminal里面生成一个alibi和causal-mask然后一直用着的，
-        ## 考虑到通信损失可能大于计算时间, 这里每个block生成自己的
-        ## 讲道理，要是能每个stage生成自己的就好啦
         batch_size, seq_length, _ = hidden_states.shape
         causal_mask = self._prepare_attn_mask(
             attention_mask, input_shape=(batch_size, seq_length),
             past_key_values_length=0,
         ).detach()
         alibi = self.alibi_emb(attention_mask)
-        #  alibi = build_alibi_tensor(attention_mask, self.config.n_head,
-        #          dtype=hidden_states.dtype)
 
         if self.gradient_checkpointing and self.training:
             outputs = torch.utils.checkpoint.checkpoint(
@@ -80,7 +74,6 @@ class BloomBlockTupleIO(BloomBlock):
                     attention_mask=causal_mask, alibi=alibi)
 
         hidden_states = outputs[0]
-        if self.ret_only_hidden: return hidden_states
         return hidden_states, attention_mask
 
     def _prepare_attn_mask(
@@ -169,14 +162,11 @@ class BloomTerminal(nn.Module):
             attention_mask = attention_mask.to(hidden_states.device)
         attention_mask = attention_mask.clone().detach()
 
-
-        ## 如果要让alibi在stage之间传输的话，必须是requires_grad=True的，不然就会报错
-        #  alibi = build_alibi_tensor(attention_mask, self.num_heads, dtype=hidden_states.dtype)#.detach()
-
         return hidden_states, attention_mask
 
-    def forward_last(self, lm_output):
-        lm_output = self.word_embeddings_layernorm(lm_output)
+    def forward_last(self, inputs):
+        hidden_states, attention_mask = inputs
+        lm_output = self.word_embeddings_layernorm(hidden_states)
         lm_output = F.linear(lm_output, self.word_embeddings.weight, None)
         return lm_output
 
@@ -189,7 +179,6 @@ class BloomTerminal(nn.Module):
 
 def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False, tie_emb=True):
     specs = []
-    ## 这个key='embed'必须跟下面的相同，不相同就变成两个不同的layer了，也就是说，他们会是用key.tied_weight_attr来保存这个的，如果两个不一样，就成为不同的key了
     ldpth = osp.join(load_path, 'layer_00-model_states.pt') if load_path else None
     if tie_emb:
         specs.append(TiedLayerSpec('embed', BloomTerminal, config,
@@ -201,9 +190,7 @@ def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False, tie_emb=T
     for i in range(1, config.num_hidden_layers + 1):
         ldpth = None
         if load_path: ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
-        ret_only_hidden = True if i == config.num_hidden_layers else False
         specs.append(LayerSpec(BloomBlockTupleIO, config, load_path=ldpth,
-                   ret_only_hidden=ret_only_hidden,
                    gradient_checkpointing=grad_ckpt))
 
     ldpth = None

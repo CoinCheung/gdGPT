@@ -176,9 +176,5 @@ def get_llama_causal_lm_specs(config, load_path=None, grad_ckpt=False, tie_emb=F
                 tied_weight_attr='weight'))
     else:
         specs.append(LlamaTerminal(config, is_first=False, load_path=ldpth))
-    #  specs.append(LlamaTerminal(config, True))
-    #  for ind in range(config.num_hidden_layers):
-    #      specs.append(LlamaDecoderLayerTupleIO(config))
-    #  specs.append(LlamaTerminal(config, False))
     return specs
 
