@@ -86,7 +86,7 @@
 
     python convert_model.py hg_to_pp --input-path $INPUT --save-path $SAVE_PATH
 ```
-这一步是为了生成做finetune要加载的预训练权重，如果你想from-scratch的话，就没必要这样转换权重了，跳过这一步直接训练就好。
+
 
 
 #### 3. 训练  
@@ -96,8 +96,8 @@
     $ deepspeed train_ds.py --config configs/ds_config_pp.json
 ```
 
-(2) 多机训练
-如果你想训练更大的模型，8张v100就不太够了，得用多机联机训练才行。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
+(2) 多机训练  
+如果你想训练更大的模型，8张v100不太够用的那种，就得用多机联机训练才行。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
 ```
     $ deepspeed --hostfile ./hostfile train_ds.py --config ds_config.json
 ```
