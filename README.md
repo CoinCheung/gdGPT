@@ -97,11 +97,12 @@
 ```
 
 (2) 多机训练  
-如果你想训练更大的模型，8张v100不太够用的那种，就得用多机联机训练才行。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
+当8张v100不太够用的时候，就得用多机联机训练。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
 ```
     $ deepspeed --hostfile ./hostfile train_ds.py --config ds_config.json
 ```
-这里也给了一个示例的[hostfile](./hostfile)文件可以参考。  
+hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。  
+
 经过实验和推算，当打开`gradient checkpointing`并且将`max_seq_len`设为2048时，使用AdamW优化器，训练llama-13b模型需要14张v100，训练llama-30b需要31张v100，训练llama-65b需要80张v100。  
 请注意:
     * 如果你在docker环境做多机训练的话，需要在启动docker时加上`--network=host`选项。  
