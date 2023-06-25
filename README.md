@@ -99,7 +99,7 @@
 (2) 多机训练  
 当8张v100不太够用的时候，就得用多机联机训练。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
 ```
-    $ deepspeed --hostfile ./hostfile train_ds.py --config ds_config.json
+    $ deepspeed --hostfile ./hostfile train_ds.py --config ds_configs/ds_config_pp.json
 ```
 hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。  
 
@@ -119,13 +119,13 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 
 (1) activation checkingpoint  
 这个跟pytorch的`utils.checkpoint`意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果的空间，会牺牲一定的速度。  
-使用这个的方法就是在`config.json`文件里面设置:  
+使用这个的方法就是在`configs/ds_config_pp.json`文件里面设置:  
 ```json
 "use_grad_ckpt": true
 ```
 
 (2) 使用zero的offload  
-意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`config.json`里面加上下面这个:
+意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.json`里面加上下面这个:
 ```json
 "zero_force_ds_cpu_optimizer": false,
 "zero_optimization": {
@@ -162,7 +162,7 @@ adamw的一个缺点就是对每个参数都要有param/mean/var，也就是要�
 
 
 #### 5. 模型pipeline的设置方法  
-在`config.json`里面有这样的配置选项:  
+在`configs/ds_config_pp.json`里面有这样的配置选项:  
 ```json
 "model_topo": {
     "process_topology": {
