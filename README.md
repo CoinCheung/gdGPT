@@ -118,8 +118,8 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 训练LLM经常会出现内存不够用的情况，一般都是减小句子的长度，这里分享一些其他方法(不是唯一的办法，其他的请自行摸索):  
 
 (1) activation checkingpoint  
-这个跟pytorch的`utils.checkpoint`意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果的空间，会牺牲一定的速度。  
-使用这个的方法就是在`configs/ds_config_pp.json`文件里面设置:  
+这个跟pytorch的`utils.checkpoint`意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果占用的gpu内存空间，属于时间换空间的方法。  
+要想这样做就在`configs/ds_config_pp.json`文件里面设置:  
 ```json
 "use_grad_ckpt": true
 ```
