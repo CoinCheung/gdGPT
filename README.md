@@ -108,9 +108,9 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 请注意:  
     * 如果你在docker环境做多机训练的话，需要在启动docker时加上`--network=host`选项。  
     * 如果在多机并行的时候遇到NCCL的问题，需要加上一个环境变量用来指定网卡名:  
-    ```
-        echo "NCCL_SOCKET_IFNAME=eth0" > ./.deepspeed_env
-    ```
+```
+    echo "NCCL_SOCKET_IFNAME=eth0" > ./.deepspeed_env
+```
     这里面的`eth0`就是网卡名，可以使用`ip a`命令查看。  
 
 
