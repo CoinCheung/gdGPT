@@ -114,17 +114,17 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 这里面的`eth0`就是网卡名，可以使用`ip a`命令查看。  
 
 
-#### 4. 内存优化  
-训练LLM经常会出现内存不够用的情况，一般都是减小句子的长度，这里针对这个问题，这里分享一些其他方法(不是唯一的办法，其他的请自行摸索):  
+#### 4. 节省gpu内存的方法  
+训练LLM经常会出现内存不够用的情况，一般都是减小句子的长度，这里分享一些其他方法(不是唯一的办法，其他的请自行摸索):  
 
-1) activation checkingpoint  
+(1) activation checkingpoint  
 这个跟pytorch的checkpoint意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果的空间，会牺牲一定的速度。  
 使用这个的方法就是在`config.json`文件里面设置:  
 ```json
 "use_grad_ckpt": true
 ```
 
-2) 使用zero的offload  
+(2) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`config.json`里面加上下面这个:
 ```json
 "zero_force_ds_cpu_optimizer": false,
@@ -141,7 +141,7 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 },
 ```
 
-3) 使用其他优化器  
+(3) 使用其他优化器  
 adamw的一个缺点就是对每个参数都要有param/mean/var，也就是要占用三倍的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在config里面把优化器的配置改成这样: 
 ```json
 "optimizer": {
