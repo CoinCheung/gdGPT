@@ -104,6 +104,7 @@
 hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。  
 
 经过实验和推算，当打开`gradient checkpointing`并且将`max_seq_len`设为2048时，使用AdamW优化器，训练llama-13b模型需要14张v100，训练llama-30b需要31张v100，训练llama-65b需要80张v100。  
+
 请注意:  
     * 如果你在docker环境做多机训练的话，需要在启动docker时加上`--network=host`选项。  
     * 如果在多机并行的时候遇到NCCL的问题，需要加上一个环境变量用来指定网卡名:  
