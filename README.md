@@ -142,7 +142,7 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 ```
 
 (3) 使用其他优化器  
-adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在config里面把优化器的配置改成这样: 
+adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在`configs/ds_config_pp.json`里面把优化器的配置改成这样: 
 ```json
 "optimizer": {
     "type": "Lion",
