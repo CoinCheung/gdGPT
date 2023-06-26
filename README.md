@@ -1,5 +1,5 @@
 
-## 使用deepspeed对bloomz进行finetune
+## 使用deepspeed的pipeline方式对LLM进行finetune
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，速度比zero3方法更快，并且支持更长的输入序列长度。    
 在我的8张v100的服务器上，当句子长度为1024时，bloom-7b的训练速度为7 sample/s，llama-7b的训练速度为8 sample/s。如果使用gradient checkpoint可以支持更长的输入句子长度。
