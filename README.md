@@ -199,7 +199,7 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
 ```
     $ deepspeed --num_gpus 4 --num_nodes 1 demo.py
 ```
-到0.9.2的时候，deepspeed对llama还没有默认支持tensor-parallel，必须手动指定policy才行而且速度也比bloom慢一些，但是bloom是默认支持的。比如使用两张gpu的时候，bloom可以让每张卡占用一半模型的显存，而不指定policy的llama就得两个gpu都占完整模型的显存。  
+到0.9.2的时候，deepspeed对llama还没有默认支持tensor-parallel，必须手动指定policy才行而且速度也比bloom慢一些，相比之下bloom是默认支持tensor-parallel的。比如使用两张gpu的时候，bloom可以让每张卡占用一半模型的显存，而不指定policy的llama就得两个gpu都占完整模型的显存。  
 
 
 #### 2. tgi推理服务  
