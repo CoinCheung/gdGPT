@@ -253,7 +253,7 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
 
     $ curl ${url} \
         -X POST \
-        -d '{"inputs":"What is Deep Learning?","parameters":{"max_new_tokens":17}}' \
+        -d '{"inputs":"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n简化以下段落，使其更易理解\n\n### Input:\n尽管人们普遍认为互联网使我们能够与世界各地的人联系，但仍有一些人不熟悉其基本功能，不理解为什么它变得如此普遍，或者它的真正能力是什么。\n\n### Response:","parameters":{"max_new_tokens":17}}' \
         -H 'Content-Type: application/json'
 ```
 
