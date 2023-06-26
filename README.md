@@ -194,7 +194,7 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
 
 ### 使用训练好的模型权重做推理  
 
-#### 1. deepspeed推理
+#### 1. 使用deepspeed的推理api
 可以参考运行这个代码:  
 ```
     $ deepspeed --num_gpus 4 --num_nodes 1 demo.py
@@ -202,7 +202,7 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
 到0.9.2的时候，deepspeed对llama还没有默认支持tensor-parallel，必须手动指定policy才行而且速度也比bloom慢一些，相比之下bloom是默认支持tensor-parallel的。比如使用两张gpu的时候，bloom可以让每张卡占用一半模型的显存，而不指定policy的llama就得两个gpu都占完整模型的显存。  
 
 
-#### 2. tgi推理服务  
+#### 2. 使用text-generation-inference的推理服务  
 注意事项:   
 * 需要gpu和驱动的组合可以支持cuda 11.7及以上的版本，我的部署服务器是8张T4的gpu，驱动是515.65.01。  
 * 部署llama的话，需要gpu支持flash-attention，到2023.7.1为止，v100是不支持flash-attention的，所以不能用v100部署llama。  
