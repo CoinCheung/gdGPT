@@ -130,8 +130,8 @@ if args.command == 'download':
     save_path = args.save_path
     model = AutoModelForCausalLM.from_pretrained(model_name, config=None,
         torch_dtype=torch.half,
-        mirror='https://mirrors.tuna.tsinghua.edu.cn/help/hugging-face-models/',
-        #  timeout=3600,
+        #mirror='tuna',
+        #timeout=3600,
     )
     model.save_pretrained(save_path, max_shard_size='1GB')
 

@@ -162,3 +162,8 @@ cython_debug/
 # CoinCheung
 outputs/*
 checkpoints/*
+bloomz-7b1-mt/
+dec-llama-7b-hf/
+llama-7b/
+saved_bloomz_7b1_mt_pp/
+saved_llama_7b_pp/

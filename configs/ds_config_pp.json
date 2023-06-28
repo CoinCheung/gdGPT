@@ -1,5 +1,5 @@
 {
-"train_micro_batch_size_per_gpu": 2,
+"train_micro_batch_size_per_gpu": 1,
 "train_batch_size": 128,
 "dataloader_drop_last": true,
 "steps_per_print": 20,
@@ -42,7 +42,7 @@
 
 "model_topo": {
     "process_topology": {
-        "axis": ["pipe", "data"],
+        "axes": ["pipe", "data"],
         "dims": [8, 1]
     },
     "parts": [1, 5, 5, 5, 5, 5, 5, 1] 
