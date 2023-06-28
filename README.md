@@ -88,8 +88,29 @@
 ```
 
 
+#### 3. 设置模型的pipeline方法  
+在`configs/ds_config_pp.json`里面有这样的配置选项:  
+```json
+"model_topo": {
+    "process_topology": {
+        "axis": ["pipe", "data"],
+        "dims": [8, 1]
+    },
+    "parts": [1, 5, 5, 5, 5, 5, 5, 1] 
+},
+```
+这个表示一共有`8x1=8`张gpu，并且8张gpu上只有一个模型，如果是`dims: [8,2]`的话，就表示一共有`8x2=16`张gpu，并且每8张gpu上有一个模型，16张gpu上共有两个模型。  
+另外就是`parts`表示一个模型在8张gpu上是怎么分配的，`bloom-7b`的模型共有30个transformer的block，加上两端的embedding共有32个block，`parts: [1, 5, 5, 5, 5, 5, 5, 1]`表示第一张和最后一张gpu上各有1个block(按顺序应该是embedding)，中间的6张gpu上每张有5个block(transformer的block)。  
 
-#### 3. 训练  
+对于llama-7b模型，建设使用`parts: [5, 4, 4, 4, 4, 4, 4, 5]`。  
+
+友情提示: block的分布方式除了要考虑gpu内存之外，还得考虑每张卡的计算负载，因为训练速度决定于最慢的那张gpu，所以要尽量避免某一个gpu计算量比其他gpu大很多的情况。  
+
+
+
+#### 4. 训练  
+把上面得到的数据集还有模型文件在`configs/ds_config_pp.json`里面配置好，然后执行训练脚本:  
+
 (1) 单机训练  
 可以运行这个命令:  
 ```
@@ -114,7 +135,7 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 这里面的`eth0`就是网卡名，可以使用`ip a`命令查看。  
 
 
-#### 4. 节省gpu内存的方法  
+#### 5. 节省gpu内存的方法  
 训练LLM经常会出现内存不够用的情况，一般都是减小句子的长度，这里分享一些其他方法(不是唯一的办法，其他的请自行摸索):  
 
 (1) activation checkingpoint  
@@ -148,10 +169,7 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
     "type": "Lion",
     "params": {
       "lr": 2e-4,
-      "betas": [
-        0.9,
-        0.999
-      ],
+      "betas": [0.9, 0.999],
       "use_triton": true,
       "weight_decay": 2e-4
     }
@@ -159,23 +177,6 @@ adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用
 ```
 
 注意: 我没有仔细比较过adamw和lion训练好的模型的效果好坏，只是说使用这个可以节省内存，在有限的gpu上训练更大的模型，具体的效果需要使用的人自行把握。另外，这里面使用的训练参数(lr/wd/betas)也是随便设的，可能也需要调一调。    
-
-
-#### 5. 模型pipeline的设置方法  
-在`configs/ds_config_pp.json`里面有这样的配置选项:  
-```json
-"model_topo": {
-    "process_topology": {
-        "axis": ["pipe", "data"],
-        "dims": [8, 1]
-    },
-    "parts": [1, 5, 5, 5, 5, 5, 5, 1] 
-},
-```
-这个表示一共有`8x1=8`张gpu，并且8张gpu上只有一个模型，如果是`dims: [8,2]`的话，就表示一共有`8x2=16`张gpu，并且每8张gpu上有一个模型，16张gpu上共有两个模型。  
-另外就是`parts`表示一个模型在8张gpu上是怎么分配的，`bloom-7b`的模型共有30个transformer的block，加上两端的embedding共有32个block，`parts: [1, 5, 5, 5, 5, 5, 5, 1]`表示第一张和最后一张gpu上各有1个block(按顺序应该是embedding)，中间的6张gpu上每张有5个block(transformer的block)。  
-
-友情提示: block的分布方式除了要考虑gpu内存之外，还得考虑每张卡的计算负载，因为训练速度决定于最慢的那张gpu，所以要尽量避免某一个gpu计算量比其他gpu大很多的情况。  
 
 
 #### 6. 将训练好的权重转化为huggingface的权重  
