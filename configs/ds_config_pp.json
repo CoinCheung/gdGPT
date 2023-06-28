@@ -49,7 +49,7 @@
 },
 
 "from_scratch": false,
-"model_path": "./saved_bloomz_7b1_mt_pp",
+"model_path": "./saved_bloomz_7b1_mt_pp/",
 "save_path": "./checkpoints/",
 
 "n_epoches": 3,

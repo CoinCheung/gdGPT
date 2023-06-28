@@ -231,6 +231,8 @@ def get_tokenizer(model_name):
             add_bos_token=False,
             add_eos_token=False,
             padding_side='left')
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.unk_token
     return tokenizer
 
 
