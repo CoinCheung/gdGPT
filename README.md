@@ -145,20 +145,17 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 
 (2) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.json`里面加上下面这个:
-```json
-"zero_allow_untested_optimizer": true,
-"zero_force_ds_cpu_optimizer": false,
-"zero_optimization": {
-    "stage": 1,
-    "offload_param": {
-        "device": "cpu",
-        "pin_memory": true
-    },
-    "offload_optimizer": {
-        "device": "cpu",
-        "pin_memory": true
-    },
-},
+```yaml
+zero_allow_untested_optimizer: true
+zero_force_ds_cpu_optimizer: false
+zero_optimization: 
+  stage: 1
+  offload_param: 
+    device: cpu
+    pin_memory: true
+  offload_optimizer: 
+    device: cpu
+    pin_memory: true
 ```
 
 (3) 使用其他优化器  
