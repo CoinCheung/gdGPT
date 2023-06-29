@@ -90,14 +90,12 @@
 
 #### 3. 设置模型的pipeline方法  
 在`configs/ds_config_pp.json`里面有这样的配置选项:  
-```json
-"model_topo": {
-    "process_topology": {
-        "axis": ["pipe", "data"],
-        "dims": [8, 1]
-    },
-    "parts": [1, 5, 5, 5, 5, 5, 5, 1] 
-},
+```yml
+model_topo: 
+  process_topology: 
+      axes: [pipe, data]
+      dims: [8, 1]
+  parts: [1, 5, 5, 5, 5, 5, 5, 1] 
 ```
 这个表示一共有`8x1=8`张gpu，并且8张gpu上只有一个模型，如果是`dims: [8,2]`的话，就表示一共有`8x2=16`张gpu，并且每8张gpu上有一个模型，16张gpu上共有两个模型。  
 另外就是`parts`表示一个模型在8张gpu上是怎么分配的，`bloom-7b`的模型共有30个transformer的block，加上两端的embedding共有32个block，`parts: [1, 5, 5, 5, 5, 5, 5, 1]`表示第一张和最后一张gpu上各有1个block(按顺序应该是embedding)，中间的6张gpu上每张有5个block(transformer的block)。  
@@ -148,6 +146,7 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 (2) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.json`里面加上下面这个:
 ```json
+"zero_allow_untested_optimizer": true,
 "zero_force_ds_cpu_optimizer": false,
 "zero_optimization": {
     "stage": 1,

@@ -1,5 +1,5 @@
 
-CFG=configs/ds_config_pp.json
+CFG=configs/ds_config_pp.yml
 SCRIPT=train_ds.py
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
