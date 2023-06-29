@@ -100,7 +100,7 @@ model_topo:
 这个表示一共有`8x1=8`张gpu，并且8张gpu上只有一个模型，如果是`dims: [8,2]`的话，就表示一共有`8x2=16`张gpu，并且每8张gpu上有一个模型，16张gpu上共有两个模型。  
 另外就是`parts`表示一个模型在8张gpu上是怎么分配的，`bloom-7b`的模型共有30个transformer的block，加上两端的embedding共有32个block，`parts: [1, 5, 5, 5, 5, 5, 5, 1]`表示第一张和最后一张gpu上各有1个block(按顺序应该是embedding)，中间的6张gpu上每张有5个block(transformer的block)。  
 
-对于llama-7b模型，建设使用`parts: [5, 4, 4, 4, 4, 4, 4, 5]`。  
+对于llama-7b模型，建议使用`parts: [5, 4, 4, 4, 4, 4, 4, 5]`。  
 
 友情提示: block的分布方式除了要考虑gpu内存之外，还得考虑每张卡的计算负载，因为训练速度决定于最慢的那张gpu，所以要尽量避免某一个gpu计算量比其他gpu大很多的情况。  
 
