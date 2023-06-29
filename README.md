@@ -89,7 +89,7 @@
 
 
 #### 3. 设置模型的pipeline方法  
-在`configs/ds_config_pp.json`里面有这样的配置选项:  
+在`configs/ds_config_pp.yml`里面有这样的配置选项:  
 ```yml
 model_topo: 
   process_topology: 
@@ -107,18 +107,18 @@ model_topo:
 
 
 #### 4. 训练  
-把上面得到的数据集还有模型文件在`configs/ds_config_pp.json`里面配置好，然后执行训练脚本:  
+把上面得到的数据集还有模型文件在`configs/ds_config_pp.yml`里面配置好，然后执行训练脚本:  
 
 (1) 单机训练  
 可以运行这个命令:  
 ```
-    $ deepspeed train_ds.py --config configs/ds_config_pp.json
+    $ deepspeed train_ds.py --config configs/ds_config_pp.yml
 ```
 
 (2) 多机训练  
 当8张v100不太够用的时候，就得用多机联机训练。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
 ```
-    $ deepspeed --hostfile ./hostfile train_ds.py --config ds_configs/ds_config_pp.json
+    $ deepspeed --hostfile ./hostfile train_ds.py --config ds_configs/ds_config_pp.yml
 ```
 hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。  
 
@@ -138,13 +138,13 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 
 (1) activation checkingpoint  
 这个跟pytorch的`utils.checkpoint`意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果占用的gpu内存空间，属于时间换空间的方法。  
-要想这样做就在`configs/ds_config_pp.json`文件里面设置:  
-```json
-"use_grad_ckpt": true
+要想这样做就在`configs/ds_config_pp.yml`文件里面设置:  
+```yml
+use_grad_ckpt: true
 ```
 
 (2) 使用zero的offload  
-意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.json`里面加上下面这个:
+意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.yml`里面加上下面这个:
 ```yaml
 zero_allow_untested_optimizer: true
 zero_force_ds_cpu_optimizer: false
@@ -159,17 +159,15 @@ zero_optimization:
 ```
 
 (3) 使用其他优化器  
-adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在`configs/ds_config_pp.json`里面把优化器的配置改成这样: 
-```json
-"optimizer": {
-    "type": "Lion",
-    "params": {
-      "lr": 2e-4,
-      "betas": [0.9, 0.999],
-      "use_triton": true,
-      "weight_decay": 2e-4
-    }
-},
+adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在`configs/ds_config_pp.yml`里面把优化器的配置改成这样: 
+```yml
+optimizer: 
+  type: Lion
+  params: 
+    lr: 2.0e-4
+    betas: [0.9, 0.999]
+    use_triton: true
+    weight_decay: 2.0e-4
 ```
 
 注意: 我没有仔细比较过adamw和lion训练好的模型的效果好坏，只是说使用这个可以节省内存，在有限的gpu上训练更大的模型，具体的效果需要使用的人自行把握。另外，这里面使用的训练参数(lr/wd/betas)也是随便设的，可能也需要调一调。    
