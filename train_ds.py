@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import yaml
 import random
 import argparse
 
@@ -29,7 +30,7 @@ rk = int(os.environ['RANK'])
 
 
 with open(args.config, 'r') as fr:
-    ds_cfg = json.load(fr)
+    ds_cfg = yaml.load(fr, Loader=yaml.FullLoader)
 
 
 def get_model(model_path, grad_ckpt=False):
