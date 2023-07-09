@@ -1,8 +1,44 @@
 
 ## 使用deepspeed的pipeline方式对LLM进行finetune
 
-这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，速度比zero3方法更快，并且支持更长的输入序列长度。    
-在我的8张v100的服务器上，当句子长度为1024时，bloom-7b的训练速度为7 sample/s，llama-7b的训练速度为8 sample/s。如果使用gradient checkpoint可以支持更长的输入句子长度。
+这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
+
+以下是在我的8张V100上测出来的训练速度，设置是`micro_batch_size=1`，`global_batch_size=128`，训练20个step看log显示的速度(sample/s)。  
+
+
+<table class="center" style="margin-left: auto; margin-right: auto"><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<tr>
+<td align="center"><sup><sub>max_seq_len</sub></sup></td>
+<td align="center"><sup><sub>256</sub></sup></td>
+<td align="center"><sup><sub>384</sub></sup></td>
+<td align="center"><sup><sub>512</sub></sup></td>
+<td align="center"><sup><sub>768</sub></sup></td>
+<td align="center"><sup><sub>1024</sub></sup></td>
+<td align="center"><sup><sub>1280</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>bloom-7b</sub></sup></td>
+<td align="center"><sup><sub>20.29</sub></sup></td>
+<td align="center"><sup><sub>15.83</sub></sup></td>
+<td align="center"><sup><sub>12.99</sub></sup></td>
+<td align="center"><sup><sub>9.21</sub></sup></td>
+<td align="center"><sup><sub>7.03</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>llama-7b</sub></sup></td>
+<td align="center"><sup><sub>22.32</sub></sup></td>
+<td align="center"><sup><sub>18.35</sub></sup></td>
+<td align="center"><sup><sub>14.88</sub></sup></td>
+<td align="center"><sup><sub>10.40</sub></sup></td>
+<td align="center"><sup><sub>8.13</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+</tr>
+<!-- END RPN TABLE -->
+</tbody></table>
 
 
 ### 我的环境  
@@ -142,6 +178,57 @@ hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。
 ```yml
 use_grad_ckpt: true
 ```
+
+开启这个选项之后可以支持更长的句子长度，下面同样是设置`micro_batch_size=1`，`global_batch_size=128`，训练20个step看log显示的速度(sample/s)。
+
+<table class="center" style="margin-left: auto; margin-right: auto"><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<tr>
+<td align="center"><sup><sub>max_seq_len</sub></sup></td>
+<td align="center"><sup><sub>256</sub></sup></td>
+<td align="center"><sup><sub>384</sub></sup></td>
+<td align="center"><sup><sub>512</sub></sup></td>
+<td align="center"><sup><sub>768</sub></sup></td>
+<td align="center"><sup><sub>1024</sub></sup></td>
+<td align="center"><sup><sub>1280</sub></sup></td>
+<td align="center"><sup><sub>1536</sub></sup></td>
+<td align="center"><sup><sub>1792</sub></sup></td>
+<td align="center"><sup><sub>2048</sub></sup></td>
+<td align="center"><sup><sub>3072</sub></sup></td>
+<td align="center"><sup><sub>4096</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>bloom-7b</sub></sup></td>
+<td align="center"><sup><sub>15.52</sub></sup></td>
+<td align="center"><sup><sub>12.22</sub></sup></td>
+<td align="center"><sup><sub>10.06</sub></sup></td>
+<td align="center"><sup><sub>7.04</sub></sup></td>
+<td align="center"><sup><sub>5.32</sub></sup></td>
+<td align="center"><sup><sub>4.21</sub></sup></td>
+<td align="center"><sup><sub>3.30</sub></sup></td>
+<td align="center"><sup><sub>2.71</sub></sup></td>
+<td align="center"><sup><sub>2.33</sub></sup></td>
+<td align="center"><sup><sub>1.28</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>llama-7b</sub></sup></td>
+<td align="center"><sup><sub>16.89</sub></sup></td>
+<td align="center"><sup><sub>14.01</sub></sup></td>
+<td align="center"><sup><sub>11.40</sub></sup></td>
+<td align="center"><sup><sub>8.03</sub></sup></td>
+<td align="center"><sup><sub>6.24</sub></sup></td>
+<td align="center"><sup><sub>5.12</sub></sup></td>
+<td align="center"><sup><sub>4.04</sub></sup></td>
+<td align="center"><sup><sub>3.39</sub></sup></td>
+<td align="center"><sup><sub>2.92</sub></sup></td>
+<td align="center"><sup><sub>-</sub></sup></td>
+<td align="center"><sup><sub>1.15</sub></sup></td>
+</tr>
+</tr>
+<!-- END RPN TABLE -->
+</tbody></table>
 
 (2) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.yml`里面加上下面这个:
