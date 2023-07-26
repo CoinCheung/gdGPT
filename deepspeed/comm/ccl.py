@@ -14,7 +14,7 @@ from .torch import TorchBackend
 
 def build_ccl_op():
     builder = get_accelerator().create_op_builder("CCLCommBuilder")
-    if builder == None:
+    if builder is None:
         return None
     ccl_cpp_module = builder.load()
     print(f'DeepSpeed {builder.absolute_name()} built successfully')
@@ -24,6 +24,11 @@ def build_ccl_op():
 class CCLBackend(TorchBackend):
 
     def __init__(self, name='ccl', rank=-1, world_size=-1, mpu=None, timeout=None, init_method=None):
+        self.ccl_comm_op = build_ccl_op()
+        if self.ccl_comm_op is None:
+            # set CCLBackend to uninitialized state if CCLCommBuilder cannot be loaded
+            self.initialized = False
+            return
         super(CCLBackend, self).__init__(backend='ccl',
                                          name='torch',
                                          rank=rank,
@@ -31,11 +36,6 @@ class CCLBackend(TorchBackend):
                                          timeout=timeout,
                                          init_method=init_method)
         self.name = 'ccl'
-        self.ccl_comm_op = build_ccl_op()
-        if self.ccl_comm_op == None:
-            # set CCLBackend to uninitialized state if CCLCommBuilder cannot be loaded
-            self.initialized = False
-            return
         size = self.get_world_size()
         rank = self.get_rank()
         main_kvs = self.ccl_comm_op.get_kvs_addr(rank)

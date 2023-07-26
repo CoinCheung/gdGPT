@@ -252,7 +252,7 @@ optimizer:
   type: Lion
   params: 
     lr: 2.0e-4
-    betas: [0.9, 0.999]
+    betas: [0.95, 0.98]
     use_triton: true
     weight_decay: 2.0e-4
 ```
