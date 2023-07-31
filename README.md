@@ -195,7 +195,7 @@ use_grad_ckpt: true
 <!-- END RPN TABLE -->
 </tbody></table>
 
-(2) 使用flash-attention 
+(2) 使用flash-attention   
 flash-attention可以加快qkv的计算速度，而且还能省内存，用过的人都说好，如果你的平台可以运行flash-attention的话，可以在配置文件`configs/ds_config_pp.yml`里面这样设置: 
 ```yaml
     use_flash_attn: true
@@ -220,7 +220,7 @@ optimizer:
   type: Lion
   params: 
     lr: 2.0e-4
-    betas: [0.9, 0.999]
+    betas: [0.95, 0.98]
     use_triton: true
     weight_decay: 2.0e-4
 ```
