@@ -12,22 +12,27 @@ from transformers import AutoTokenizer, LlamaTokenizer
 
 
 
-def truncate_and_pad_left(input_ids, att_mask, labels, max_seq_len, tokenizer):
+def truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer, side='right'):
     # truncate to max_seq_len
     input_ids = input_ids[:max_seq_len]
     att_mask = att_mask[:max_seq_len]
     labels = labels[:max_seq_len]
 
-    # pad to left
+    # pad
     len_pad = max_seq_len - input_ids.size(0)
     if len_pad > 0:
         pad_token_id = tokenizer.pad_token_id
         pad_inp = torch.zeros(len_pad, dtype=torch.long).fill_(pad_token_id)
         pad_att = torch.zeros(len_pad, dtype=torch.long)
         pad_lb = torch.zeros(len_pad, dtype=torch.long).fill_(-100) # ignore pad label
-        input_ids = torch.cat([pad_inp, input_ids], dim=0)
-        att_mask = torch.cat([pad_att, att_mask], dim=0)
-        labels = torch.cat([pad_lb, labels], dim=0)
+        if side == 'left':
+            input_ids = torch.cat([pad_inp, input_ids], dim=0)
+            att_mask = torch.cat([pad_att, att_mask], dim=0)
+            labels = torch.cat([pad_lb, labels], dim=0)
+        elif side == 'right':
+            input_ids = torch.cat([input_ids, pad_inp], dim=0)
+            att_mask = torch.cat([att_mask, pad_att], dim=0)
+            labels = torch.cat([labels, pad_lb], dim=0)
 
     inputs = torch.cat([input_ids.unsqueeze(-1), att_mask.unsqueeze(-1)], dim=-1)
 
@@ -122,7 +127,7 @@ def parse_instruct_sample(tokenizer, ob, max_seq_len, ignore_known=False):
     att_mask = torch.cat([p_attm, o_attm], dim=0)
     labels = torch.cat([p_lb, o_lb], dim=0)
 
-    res = truncate_and_pad_left(input_ids, att_mask, labels, max_seq_len, tokenizer)
+    res = truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer)
     inputs, labels = res
     labels[-1] = tokenizer.eos_token_id
 
@@ -163,7 +168,7 @@ def parse_conversation_sample(tokenizer, ob, max_seq_len, ignore_known=False):
     att_mask = torch.cat([h_attm, ] + res_rounds[1], dim=0)
     labels = torch.cat([h_lb, ] + res_rounds[2], dim=0)
 
-    res = truncate_and_pad_left(input_ids, att_mask, labels, max_seq_len, tokenizer)
+    res = truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer)
     inputs, labels = res
     labels[-1] = tokenizer.eos_token_id
 
@@ -200,7 +205,7 @@ def parse_ref_qa_sample(tokenizer, ob, max_seq_len, ignore_known=False):
     att_mask = torch.cat([hr_attm, ] + res_rounds[1], dim=0)
     labels = torch.cat([hr_lb, ] + res_rounds[2], dim=0)
 
-    res = truncate_and_pad_left(input_ids, att_mask, labels, max_seq_len, tokenizer)
+    res = truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer)
     inputs, labels = res
     labels[-1] = tokenizer.eos_token_id
 
