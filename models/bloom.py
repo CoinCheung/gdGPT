@@ -177,7 +177,8 @@ class BloomTerminal(nn.Module):
         self.word_embeddings = new_embeddings
 
 
-def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False, tie_emb=True):
+def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False,
+        tie_emb=True, use_flash_attn=False):
     specs = []
     ldpth = osp.join(load_path, 'layer_00-model_states.pt') if load_path else None
     if tie_emb:

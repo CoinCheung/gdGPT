@@ -3,42 +3,6 @@
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
 
-以下是在我的8张V100上测出来的训练速度，设置是`micro_batch_size=1`，`global_batch_size=128`，训练20个step看log显示的速度(sample/s)。  
-
-
-<table class="center" style="margin-left: auto; margin-right: auto"><tbody>
-<!-- START TABLE -->
-<!-- TABLE HEADER -->
-<tr>
-<td align="center"><sup><sub>max_seq_len</sub></sup></td>
-<td align="center"><sup><sub>256</sub></sup></td>
-<td align="center"><sup><sub>384</sub></sup></td>
-<td align="center"><sup><sub>512</sub></sup></td>
-<td align="center"><sup><sub>768</sub></sup></td>
-<td align="center"><sup><sub>1024</sub></sup></td>
-<td align="center"><sup><sub>1280</sub></sup></td>
-</tr>
-<tr>
-<td align="center"><sup><sub>bloom-7b</sub></sup></td>
-<td align="center"><sup><sub>20.29</sub></sup></td>
-<td align="center"><sup><sub>15.83</sub></sup></td>
-<td align="center"><sup><sub>12.99</sub></sup></td>
-<td align="center"><sup><sub>9.21</sub></sup></td>
-<td align="center"><sup><sub>7.03</sub></sup></td>
-<td align="center"><sup><sub>oom</sub></sup></td>
-</tr>
-<tr>
-<td align="center"><sup><sub>llama-7b</sub></sup></td>
-<td align="center"><sup><sub>22.32</sub></sup></td>
-<td align="center"><sup><sub>18.35</sub></sup></td>
-<td align="center"><sup><sub>14.88</sub></sup></td>
-<td align="center"><sup><sub>10.40</sub></sup></td>
-<td align="center"><sup><sub>8.13</sub></sup></td>
-<td align="center"><sup><sub>oom</sub></sup></td>
-</tr>
-</tr>
-<!-- END RPN TABLE -->
-</tbody></table>
 
 
 ### 我的环境  
@@ -53,6 +17,7 @@
 * torch==1.13.1
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
+* flash_attn==2.0.2
 
 
 ### 训练  
@@ -230,29 +195,32 @@ use_grad_ckpt: true
 <!-- END RPN TABLE -->
 </tbody></table>
 
-(2) 使用zero的offload  
+(2) 使用flash-attention 
+flash-attention可以加快qkv的计算速度，而且还能省内存，用过的人都说好，如果你的平台可以运行flash-attention的话，可以在配置文件`configs/ds_config_pp.yml`里面这样设置: 
+```yaml
+    use_flash_attn: true
+```
+到2023.8为止，flash-attention还不支持V100，在本项目里面也只支持llama不支持bloom模型。
+
+(3) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.yml`里面加上下面这个:
 ```yaml
 zero_allow_untested_optimizer: true
 zero_force_ds_cpu_optimizer: false
 zero_optimization: 
   stage: 1
-  offload_param: 
-    device: cpu
-    pin_memory: true
   offload_optimizer: 
     device: cpu
-    pin_memory: true
 ```
 
-(3) 使用其他优化器  
+(4) 使用其他优化器  
 adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在`configs/ds_config_pp.yml`里面把优化器的配置改成这样: 
 ```yml
 optimizer: 
   type: Lion
   params: 
     lr: 2.0e-4
-    betas: [0.95, 0.98]
+    betas: [0.9, 0.999]
     use_triton: true
     weight_decay: 2.0e-4
 ```

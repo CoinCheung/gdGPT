@@ -47,3 +47,4 @@ data_path: ./dataset.json
 
 use_grad_ckpt: false
 
+use_flash_attn: false

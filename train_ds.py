@@ -41,6 +41,7 @@ def get_model(model_path, grad_ckpt=False):
     if ds_cfg['from_scratch']: kwargs['load_path'] = None
     if hasattr(config, 'tie_word_embeddings'):
         kwargs['tie_emb'] = config.tie_word_embeddings
+    kwargs['use_flash_attn'] = ds_cfg.get('use_flash_attn', False)
 
     if re.search('llama', model_type):
         specs = get_llama_causal_lm_specs(**kwargs)
