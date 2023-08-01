@@ -78,6 +78,16 @@ class LlamaAttentionFlashAttn(LlamaAttention):
         query_states = torch.einsum('bhld->blhd', query_states)
         key_states = torch.einsum('bhld->blhd', key_states)
         value_states = torch.einsum('bhld->blhd', value_states)
+
+        #  with torch.no_grad():
+        #      attn_output_fl = flash_attn_func(query_states, key_states,
+        #              value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
+        #              causal=True)
+        #      attn = torch.einsum('bihd,bjhd->bhij', query_states, key_states).mul(self.inv_norm_factor)
+        #      attn = F.softmax(attn + attention_mask, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        #      attn_output = torch.einsum('bhij,bjhd->bihd', attn, value_states)
+        #      print((attn_output_fl - attn_output).abs().max())
+
         attn_output = flash_attn_func(query_states, key_states,
                 value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
                 causal=True)
