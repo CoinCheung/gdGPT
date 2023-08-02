@@ -1,0 +1,62 @@
+train_micro_batch_size_per_gpu: 1
+train_batch_size: 128
+dataloader_drop_last: true
+steps_per_print: 20
+optimizer: 
+  type: AdamW
+  params: 
+    lr: 1.0e-5
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    weight_decay: 4.0e-5
+scheduler: 
+  type: WarmupCosineLR
+  params: 
+    warmup_num_steps: 100
+    warmup_min_ratio: 0.02
+    cos_min_ratio: 0.2 
+  
+
+bf16: 
+  enabled: false 
+fp16: 
+  enabled: true
+  auto_cast: false
+  loss_scale: 0
+  initial_scale_power: 16
+  loss_scale_window: 1000
+  hysteresis: 2
+  min_loss_scale: 1
+
+zero_allow_untested_optimizer: true
+zero_force_ds_cpu_optimizer: false
+zero_optimization:
+  stage: 3
+  memory_efficient_linear: false
+  contiguous_gradients : true
+  overlap_comm: true
+  reduce_scatter: true
+  reduce_bucket_size: 10000000
+
+  ## add these to enable zero++
+  # zero_quantized_weights: true
+  # zero_hpz_partition_size: 16
+  # zero_quantized_gradients: true
+
+
+from_scratch: false
+model_path: ./saved_llama_7b_pp/
+save_path: ./checkpoints/
+
+n_epoches: 3
+max_seq_len: 256
+# max_seq_len: 384
+# max_seq_len: 512
+# max_seq_len: 768
+# max_seq_len: 1024
+# max_seq_len: 1280
+data_path: ./dataset.json
+
+use_grad_ckpt: false
+
+
