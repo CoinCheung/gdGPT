@@ -75,6 +75,12 @@
 </tr>
 </tbody></table>
 
+不知道为啥，我测的zero++的速度是比zero慢的，可能是因为我这是单机训练，不涉及多机之间的通信，所以没有发挥出zero++的优势吧。我把zero的测试代码也放出来了，欢迎南来北往的老爷们批评指正。  
+zero的运行命令就是: 
+```
+    $ deepspeed train_ds_zero.py --config configs/ds_config_zero.yml
+```
+
 
 ### 我的环境  
 * AMD EPYC 7742 64-Core Processor
