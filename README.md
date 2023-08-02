@@ -3,18 +3,89 @@
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
 
+下面是在我的8张40G的A100上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
+
+<table class="center" style="margin-left: auto; margin-right: auto"><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<tr>
+<td align="center"><sup><sub>max_seq_len</sub></sup></td>
+<td align="center"><sup><sub>256</sub></sup></td>
+<td align="center"><sup><sub>384</sub></sup></td>
+<td align="center"><sup><sub>512</sub></sup></td>
+<td align="center"><sup><sub>768</sub></sup></td>
+<td align="center"><sup><sub>1024</sub></sup></td>
+<td align="center"><sup><sub>1280</sub></sup></td>
+<td align="center"><sup><sub>1536</sub></sup></td>
+<td align="center"><sup><sub>2048</sub></sup></td>
+<td align="center"><sup><sub>3072</sub></sup></td>
+<td align="center"><sup><sub>4096</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>zero3</sub></sup></td>
+<td align="center"><sup><sub>15.76</sub></sup></td>
+<td align="center"><sup><sub>13.37</sub></sup></td>
+<td align="center"><sup><sub>13.34</sub></sup></td>
+<td align="center"><sup><sub>12.67</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>zero3++</sub></sup></td>
+<td align="center"><sup><sub>13.10</sub></sup></td>
+<td align="center"><sup><sub>12.88</sub></sup></td>
+<td align="center"><sup><sub>12.30</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>pipeline</sub></sup></td>
+<td align="center"><sup><sub>40.28</sub></sup></td>
+<td align="center"><sup><sub>39.86</sub></sup></td>
+<td align="center"><sup><sub>36.31</sub></sup></td>
+<td align="center"><sup><sub>27.69</sub></sup></td>
+<td align="center"><sup><sub>20.32</sub></sup></td>
+<td align="center"><sup><sub>16.78</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+<tr>
+<td align="center"><sup><sub>pipeline<cr/>flash-attn</sub></sup></td>
+<td align="center"><sup><sub>41.27</sub></sup></td>
+<td align="center"><sup><sub>41.66</sub></sup></td>
+<td align="center"><sup><sub>37.43</sub></sup></td>
+<td align="center"><sup><sub>30.91</sub></sup></td>
+<td align="center"><sup><sub>23.76</sub></sup></td>
+<td align="center"><sup><sub>20.86</sub></sup></td>
+<td align="center"><sup><sub>17.18</sub></sup></td>
+<td align="center"><sup><sub>13.20</sub></sup></td>
+<td align="center"><sup><sub>9.03</sub></sup></td>
+<td align="center"><sup><sub>oom</sub></sup></td>
+</tr>
+</tbody></table>
 
 
 ### 我的环境  
-* Intel(R) Xeon(R) Gold 5218 CPU @ 2.30GHz
+* AMD EPYC 7742 64-Core Processor
 * 512G cpu memory
-* v100 x 8
+* A100(40G) x 8
 * ubuntu 18.04 
 * python 3.8.12
-* driver 515.65.01 
-* cuda11.6 + cudnn8 
-* deepspeed==0.9.2 
-* torch==1.13.1
+* driver 520.61.05
+* cuda11.8 + cudnn8 
+* deepspeed==0.10.0 
+* torch==2.0.1
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
@@ -220,7 +291,7 @@ optimizer:
   type: Lion
   params: 
     lr: 2.0e-4
-    betas: [0.95, 0.98]
+    betas: [0.9, 0.999]
     use_triton: true
     weight_decay: 2.0e-4
 ```
