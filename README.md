@@ -61,7 +61,7 @@
 <td align="center"><sup><sub>oom</sub></sup></td>
 </tr>
 <tr>
-<td align="center"><sup><sub>pipeline<cr/>flash-attn</sub></sup></td>
+<td align="center"><sup><sub>pipeline<br/>flash-attn</sub></sup></td>
 <td align="center"><sup><sub>41.27</sub></sup></td>
 <td align="center"><sup><sub>41.66</sub></sup></td>
 <td align="center"><sup><sub>37.43</sub></sup></td>
