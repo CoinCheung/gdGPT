@@ -5,7 +5,7 @@
 
 下面是在我的8张40G的A100上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
 
-<table class="center" style="margin-left: auto; margin-right: auto"><tbody>
+<table class="center" style="margin-left: auto; margin-right: auto; font-size:80%"><tbody>
 <!-- START TABLE -->
 <!-- TABLE HEADER -->
 <tr>
@@ -61,7 +61,7 @@
 <td align="center"><sup><sub>oom</sub></sup></td>
 </tr>
 <tr>
-<td align="center"><sup><sub>pipeline<br/>flash-attn</sub></sup></td>
+<td align="center"><sup><sub>pipeline<br/>(flash-attn)</sub></sup></td>
 <td align="center"><sup><sub>41.27</sub></sup></td>
 <td align="center"><sup><sub>41.66</sub></sup></td>
 <td align="center"><sup><sub>37.43</sub></sup></td>
