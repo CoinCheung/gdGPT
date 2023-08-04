@@ -3,9 +3,9 @@
 
 ## Train LLM with deepspeed in pipeline mode
 
-This repo provides a codebase based on deepspeed pipeline mode with which you can pre-train or fine-tune LLM faster and more memory-efficiently than zero mode. 
+This repo provides a codebase based on deepspeed pipeline mode with which you can pretrain or finetune LLM faster and more memory-efficiently than zero mode. 
 
-Following is benchmark done with 8 A100(SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
+Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
 <table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
 <!-- START TABLE -->
@@ -79,7 +79,7 @@ Following is benchmark done with 8 A100(SXM-40G) gpu, the model is llamaV1-7b, w
 
 We can see that zero++ is slower than zero on my platform, that's roughly because I train the model on single node, which cannot make good use of zero++ cross-node communication ability. Besides, the speed of zero/zero++ goes down slowly when training sequence length goes up. This can be because zero/zero++ suffers from its communication bottleneck even when longer sequence brings more computation burden. This means that the computation capability of gpus are not fully utilized due to the limitation of communication.  
 
-If you would like to try zero/zero++ yourself, you can run this script(not recommended, since pipeline is better):  
+If you would like to try zero/zero++ yourself, you can run this script (not recommended, since pipeline is better):  
 ```
     $ deepspeed train_ds_zero.py --config configs/ds_config_zero.yml
 ```
@@ -88,7 +88,7 @@ If you would like to try zero/zero++ yourself, you can run this script(not recom
 ### Environment  
 * AMD EPYC 7742 64-Core Processor
 * 512G cpu memory
-* A100(SXM-40G) x 8
+* A100 (SXM-40G) x 8
 * ubuntu 18.04 
 * python 3.8.12
 * driver 520.61.05
@@ -154,7 +154,7 @@ The training samples should be in json format as follows:
     }
 ]
 ```
-You can combine different sorts of samples to train your model(e.g. a mixure of instruct and conversation), this will allow your model to work on different sorts of tasks.  
+You can combine different sorts of samples to train your model (e.g. a mixure of instruct and conversation), this will allow your model to work on different sorts of tasks.  
 
 Additionally, users should take care of the length of the samples. If the length of samples is longer than the `max_seq_length`, they will be truncated directly which is detrimental to the model.  
 
