@@ -189,7 +189,7 @@ For `llama-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We shoul
 
 
 #### 4. Launch training  
-Set options associated with dataset, pipeline weights and parallel method in the config file of `configs/ds_config_pp.yml`, and launch training.  
+After the above steps to set options associated with dataset, pipeline weights and parallel method in the config file `configs/ds_config_pp.yml`, we can launch training.  
 
 (1) Single node training  
 Train with this command:  
