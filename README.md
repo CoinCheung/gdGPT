@@ -161,7 +161,7 @@ Additionally, users should take care of the length of the samples. If the length
 
 
 #### 2. Convert huggingface weights to pipeline weights  
-You can run this script(currently only support bloom and llama):  
+You can run this script (currently only support bloom and llama):  
 ```
     INPUT=bigscience/bloomz-7b1-mt # model name in the huggingface hub
     # INPUT=/path/to/models # or the path including saved model and tokenizer(saved by `save_pretrained()`), tokenizer is necessary
@@ -302,7 +302,7 @@ optimizer:
     use_triton: true
     weight_decay: 2.0e-4
 ```
-With this Lion, you can train llama-13b with 8 v100 gpus(max_seq_len=128).   
+With this Lion, you can train llama-13b with 8 v100 gpus (max_seq_len=128).   
 
 Note: AdamW has different mechanism from Lion, thus hyper-parameters tuned for AdamW cannot be migrated to Lion directly. Users should adjust the lr/wd/betas according to their own need.  
 
