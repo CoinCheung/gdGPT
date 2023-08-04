@@ -311,7 +311,7 @@ optimizer:
 #### 6. 将训练好的权重转化为huggingface的权重  
 运行以下脚本:  
 ```
-    $ python convert_model.py pp_to_hg --input-path /path/to/pp/checkpoint --save-path /path/to/hg
+    $ python convert_model.py pp_to_hg --input-path /path/to/trained/pp/checkpoint --save-path /path/to/hg
 ```
 
 到这一步，就可以利用其他项目里面的各种方式加载并且部署了，找到定义模型的地方，像这样手动加载我们自己训练的模型: 

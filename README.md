@@ -303,9 +303,9 @@ optimizer:
     use_triton: true
     weight_decay: 2.0e-4
 ```
-With this Lion, you can train llama-13b with 8 v100 gpus (max_seq_len=128).   
+With Lion, you can train llama-13b with 8 v100 gpus (max_seq_len=128).   
 
-Note: AdamW has different mechanism from Lion, thus hyper-parameters tuned for AdamW cannot be migrated to Lion directly. Users should adjust the lr/wd/betas according to their own need.  
+Note: AdamW has different mechanism from Lion, thus hyper-parameters tuned for AdamW cannot be used in Lion directly. Users should adjust the lr/wd/betas according to their own need.  
 
 
 #### 6. Convert trained pipeline weights to huggingface weights
@@ -369,14 +369,14 @@ Firstly, we need to save model and tokenizer into a directory:
 
 Then we can launch TGI server:  
 ```
-    model_root=./saved_models # identical ./saved_models as above
-    model_id=llama_13b_hf # identical folder name of llama_13b_hf as above
+    model_root=./saved_models # identical `./saved_models` saved as above
+    model_id=llama_13b_hf # identical folder name of `llama_13b_hf` as above
     num_gpus=8
 
     $ docker run -d --gpus all --shm-size 64g -p 8082:80 -v $model_root:/data ghcr.io/huggingface/text-generation-inference:0.8 --num-shard $num_gpus --model-id $model_id # --disable-custom-kernels
 ```
 
-If server starts successfully, we can call it:  
+If server starts successfully, we can call the service:  
 ```
     url=127.0.0.1:8082/generate # return all generated tokens in one time
     # url=127.0.0.1:8082/generate_stream # return generated tokens one by one
@@ -398,7 +398,7 @@ Will push to `coincheung/cc-bloom-7b` in the huggingface hub if done.
 
 
 ### In The End 
-If you see any error in the code or you have better implementation method, please open issues to tell me. Any suggestions or oppions or news are appreciated.
+If you see any error in the code or you have better implementation method, please open issues to tell me. Any suggestions or oppions or shares are appreciated.
 
 
 
