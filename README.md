@@ -180,10 +180,11 @@ model_topo:
       dims: [8, 1]
   parts: [1, 5, 5, 5, 5, 5, 5, 1] 
 ```
-`dims: [8, 1]` means there are `8 x 1 = 8` gpus in total, and one model is partitioned into 8 parts, each of which are trained on one gpu. If you have 16 gpus, you can set `dims: [8, 2]`, which means there are two models in total, and each one is partitioned into 8 parts.   
-`parts` shows how the model is partitioned into 8 gpus. Take `bloom-7b` model for example, it has 30 transformer block, one word-embedding layer and one word-prediction layer, summing up into 32 blocks. `parts: [1, 5, 5, 5, 5, 5, 5, 1]` means the first word embedding block lies on the first gpu, and the last word prediction layer lies on the last gpu, and the remaining 30 transformer blocks evenly lies amoung the 6 gpus in the middle.  
+`dims: [8, 1]` means there are `8 x 1 = 8` gpus in total, and one model is partitioned into 8 parts, each of which are trained on one gpu. If you have 16 gpus, you can set `dims: [8, 2]`, which means there are two models in total trained in DDP mode, and each model is partitioned into 8 gpus.   
 
-For `llama-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We should not only consider the memory but also computation layout amoung different gpus. The training speed is up to the slowest gpu, so we should let each gpu have equal or similar computation burden.  
+`parts` shows how the model is partitioned into 8 gpus. Take `bloom-7b` model for example, it has 30 transformer block, one word-embedding layer and one word-prediction layer, summing up into 32 blocks. `parts: [1, 5, 5, 5, 5, 5, 5, 1]` means the first word embedding block lies on the first gpu, and the last word prediction layer lies on the last gpu, and the remaining 30 transformer blocks evenly lies among the 6 gpus in the middle.  
+
+For `llama-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We should not only consider the memory but also computation layout among different gpus. The training speed is up to the slowest gpu, so we should let each gpu have equal or similar computation burden.  
 
 
 
