@@ -223,7 +223,7 @@ Same as `utils.checkpoint` of pytorch，we free memory of activations right afte
 ```yml
 use_grad_ckpt: true
 ```
-This will introduce more computation but can greatly reduce memory usage. It is a method of trading speed with memory, following are some experiment results of this trick (done with 8 v100 gpus):  
+This will introduce more computation but can greatly reduce memory usage. It is a method of trading speed with memory, here are some experiment results done with 8 v100 gpus:  
 
 <table class="center" style="margin-left: auto; margin-right: auto"><tbody>
 <!-- START TABLE -->
@@ -275,7 +275,7 @@ This will introduce more computation but can greatly reduce memory usage. It is 
 </tbody></table>
 
 (2) flash-attention   
-flash-attention optimizes both speed and memory of qkv attention computation, you can enable this by change this option in `configs/ds_config_pp.yml`:  
+flash-attention optimizes both speed and memory of qkv attention computation, you can enable this by setting this option in `configs/ds_config_pp.yml`:  
 ```yaml
     use_flash_attn: true
 ```
