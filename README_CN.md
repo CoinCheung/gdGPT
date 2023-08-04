@@ -5,7 +5,7 @@
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
 
-下面是在我的8张40G的A100上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
+下面是在我的8张40G的A100-SXM上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
 
 <table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
 <!-- START TABLE -->
@@ -88,7 +88,7 @@ zero的运行命令就是:
 ### 我的环境  
 * AMD EPYC 7742 64-Core Processor
 * 512G cpu memory
-* A100(40G) x 8
+* A100(SXM-40G) x 8
 * ubuntu 18.04 
 * python 3.8.12
 * driver 520.61.05

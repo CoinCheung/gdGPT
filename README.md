@@ -1,11 +1,11 @@
 
 [中文版](./README_CN.md)
 
-## Train or finetune LLM with deepspeed in pipeline mode
+## Train LLM with deepspeed in pipeline mode
 
 This repo provides a codebase based on deepspeed pipeline mode with which you can pre-train or fine-tune LLM faster and more memory-efficiently than zero mode. 
 
-Following is benchmark done with 8 A100(40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
+Following is benchmark done with 8 A100(SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
 <table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
 <!-- START TABLE -->
@@ -88,7 +88,7 @@ If you would like to try zero/zero++ yourself, you can run this script(not recom
 ### Environment  
 * AMD EPYC 7742 64-Core Processor
 * 512G cpu memory
-* A100(40G) x 8
+* A100(SXM-40G) x 8
 * ubuntu 18.04 
 * python 3.8.12
 * driver 520.61.05
