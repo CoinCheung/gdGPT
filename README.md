@@ -198,13 +198,13 @@ Train with this command:
 ```
 
 (2) Multi-node training  
-We need install `pdsh`, and then config ssh service so that the nodes can ssh into each other without password. We also need to write node name and their gpu number in a `hostfile`, and make sure code and dataset files on each node are identical. After that, we can launch train with this command:  
+We need install `pdsh`, and then config ssh service so that the nodes can ssh into each other without password. We also need to write node name and their gpu number in a `hostfile`, and make sure code and dataset files on each node are identical. After that, we can launch training with this command:  
 ```
     $ deepspeed --hostfile ./hostfile train_ds.py --config ds_configs/ds_config_pp.yml
 ```
 A example of `hostfile` is [here](./hostfile).  
 
-According to experments and calculation, with `use_grad_ckpt: true` and `max_seq_len: 1024`, training `llama-13b` requires 14 v100 gpus, training `llama-30b` requires 31 v100 gpus, and training `llama-65b` requires 80 v100 gpus.  
+According to experments and calculation, with `use_grad_ckpt: true` and `max_seq_len: 2048`, training `llama-13b` requires 14 v100 gpus, training `llama-30b` requires 31 v100 gpus, and training `llama-65b` requires 80 v100 gpus.  
 
 Notes:  
 * If you use docker, you need to add option of `--network=host` to start docker container.  
@@ -219,7 +219,7 @@ Here `eth0` is the network interface name, you can check with command `ip a`.
 Here are some tricks that can save memory during training:  
 
 (1) activation checkingpoint  
-Same as `utils.checkpoint` of pytorch，we free memory of activations right after forward pass, and recompute them when needed during backward pass. To enable this, you can set this option in the `configs/ds_config_pp.yml`: 
+Same as `utils.checkpoint` of pytorch，we free memory of activations right after forward pass, and recompute them when needed during backward pass. To enable this, you can set the option in `configs/ds_config_pp.yml`: 
 ```yml
 use_grad_ckpt: true
 ```
