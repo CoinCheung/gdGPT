@@ -1,9 +1,11 @@
 
-## 使用deepspeed的pipeline方式对LLM进行finetune
+[中文版](./README_CN.md)
 
-这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
+## Train LLM with deepspeed in pipeline mode
 
-下面是在我的8张40G的A100上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
+This repo provides a codebase based on deepspeed pipeline mode with which you can pretrain or finetune LLM faster and more memory-efficiently than zero mode. 
+
+Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
 <table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
 <!-- START TABLE -->
@@ -75,17 +77,18 @@
 </tr>
 </tbody></table>
 
-不知道为啥，我测的zero++的速度是比zero慢的，可能是因为我这是单机训练，不涉及多机之间的通信，所以没有发挥出zero++的优势吧。另外还可以看到，随着输入序列长度的增加，zero的速度减小的比较慢，这说明相对于计算来说模型参数和优化器状态的通信是更大的瓶颈，即使增加一点计算量也不会出现因为计算负荷过大导致的速度下降。我把zero的测试代码也放出来了，欢迎南来北往的老爷们批评指正。  
-zero的运行命令就是: 
+We can see that zero++ is slower than zero on my platform, that's roughly because I train the model on single node, which cannot make good use of zero++ cross-node communication ability. Besides, the speed of zero/zero++ goes down slowly when training sequence length goes up. This can be because zero/zero++ suffers from its communication bottleneck even when longer sequence brings more computation burden. This means that the computation capability of gpus are not fully utilized due to the limitation of communication.  
+
+If you would like to try zero/zero++ yourself, you can run this script (not recommended, since pipeline is better):  
 ```
     $ deepspeed train_ds_zero.py --config configs/ds_config_zero.yml
 ```
 
 
-### 我的环境  
+### Environment  
 * AMD EPYC 7742 64-Core Processor
 * 512G cpu memory
-* A100(40G) x 8
+* A100 (SXM-40G) x 8
 * ubuntu 18.04 
 * python 3.8.12
 * driver 520.61.05
@@ -97,77 +100,79 @@ zero的运行命令就是:
 * flash_attn==2.0.2
 
 
-### 训练  
+### Pipeline Training   
 
-#### 1. 准备数据  
-用下面的格式准备json格式的文件: 
+#### 1. Prepare dataset   
+The training samples should be in json format as follows: 
 ```json
 [
-    // 做预训练的数据格式
+    // samples used for pretraining  
     { 
         "type": "pretrain",
-        "text": "我只想说懂得都懂，不懂的我也不多解释，毕竟自己知道就好，细细品吧。你们也别来问我怎么了，利益牵扯太大，说了对你我都没好处，当不知道就行了，其余的我只能说这里面水很深，牵扯到很多东西。详细情况你们自己是很难找的，网上大部分已经删除干净了，所以我只能说懂得都懂。懂的人已经基本都获利上岸什么的了，不懂的人永远不懂，关键懂的人都是自己悟的，你也不知道谁是懂的人也没法请教，大家都藏着掖着生怕别人知道自己懂事，懂了就能收割不懂的，你甚至都不知道自己不懂。只是在有些时候，某些人对某些事情不懂装懂，还以为别人不懂。"
+        "text": "Cai Xukun (born August 2, 1998), better known by the mononym Kun (stylized as KUN), is a Chinese singer-songwriter, dancer and rapper. He debuted as a member of SWIN and its sub-unit SWIN-S on October 18, 2016, after participating in the first and second seasons of the Chinese reality show Super Idol.[1] After leaving the group and its company Yihai Entertainment, he participated in iQiyi's reality survival show Idol Producer, finishing first and debuting as the leader/center of temporary Chinese boy group Nine Percent, on April 6, 2018.[2][3] He was a cast member of variety show Keep Running from 2020 to 2022."
     },
 
-    // instruct tuning的数据格式，如果没有input就直接不加，不要用空字符串啥的
+    // samples used for instruct tuning, there should not be an empty "input" field
     {
         "type": "instruct",
-        "instruct": "补充下面横线上的内容",
-        "input": "再多看一眼就会爆炸，________",
-        "output": "再。。。再靠近点快被融化?"
+        "instruct": "Fill out the blank in the following sentence",
+        "input": "Cai Xukun loves singing, dancing, rapping and ______",
+        "output": "playing basketball"
     },
+    // if you do not have an "input" field, you can remove it
     {
         "type": "instruct",
-        "instruct": "写一篇拍老板马屁的文章，题目是《xx的十宗罪》。要求以批评的语气来写，看起来像是在批评其实说的都是剥削的还不够狠之类的，比如老板的缺点就是工作太辛苦对下面的人太仁慈了啥的，让老板看完眼前一亮然后发到公司内部的员工论坛上，之后各大媒体争相报道，连公司外面的人都跟着高潮了。",
-        "output": "你要是没事干去村头把粪挑了"
+        "instruct": "Write a peom associated with rain.",
+        "output": "Rain is falling all around, \nIt falls on field and tree,  \nIt rains on the umbrella here, \nAnd on the ships at sea. "
     },
 
-    // 多轮对话的数据格式
+    // samples used for multi-round conversation
     {
         "type": "conversation",
         "rounds": [
-            ["ask", "你好"],
-            ["ans", "你好"],
-            ["ask", "今天星期几"],
-            ["ans", "今天星期三"],
-            ["ask", "明天星期几"],
-            ["ask", "昨天星期几"],
-            ["ask", "前天星期几"],
-            ["ans", "傻逼，再问打死你"]
+            ["ask", "Hello"],
+            ["ans", "Hello, what can I do for you ?"],
+            ["ask", "Tell me what day it is today."],
+            ["ans", "Today is Wednesday."],
+            ["ask", "Who is caixukun?"],
+            ["ask", "caixukun is a Chinese idol, who loves singing, dancing, rapping and playing basketball"],
+            ["ask", "When was caixukun born?"],
+            ["ans", "In the year of 1998."]
         ]
     },
 
-    // 给一段文本，然后针对文本问答的数据格式
+    // samples used for mrc, which means one or several rounds of QA based a piece of reference paragraph
     {
         "type": "ref_qa",
-        "reference": "一掐脖子就翻白眼，一松手就吹牛逼，早有布局遥遥领先，拳打谷歌脚踢微软，千秋万代一统江湖",
+        "reference": "On January 10, 2019, Kun was officially named China's and Jamaica's Goodwill Ambassador and Outstanding Young Leader by the Jamaican Embassy in Shanghai, China. In February, Kun announced his first solo tour, 'Kun ONE North America/U.K. Tour 2019', coming in early April 2019.",
         "rounds": [
-            ["ask", "这段话有几个字"],
-            ["ans", "100个字"],
-            ["ask", "多少汉字多少英文"],
-            ["ans", "你不会自己看?"],
+            ["ask", "When was Kun officially named China's and Jamaica's Goodwill Ambassador?"],
+            ["ans", "On January 10, 2019"],
+            ["ask", "What happened to Kun in February of 2019?"],
+            ["ans", "He announced his first solo tour, 'Kun ONE North America/U.K. Tour 2019', coming in early April 2019."],
         ]
     }
 ]
 ```
-友情提示，可以把不同形式的数据合并到一起来训练，比如instruct+conversation这种，可以让模型有能力处理不同形式的任务。  
-另外，这里需要用户自己控制数据的长度，代码里面仅仅是按设定的最大句子长度做了一下truncation和padding，对于超长的数据就直接把后面的部分截掉了，如果数据集中有许多超长的数据，可能会影响到模型的效果。
+You can combine different sorts of samples to train your model (e.g. a mixure of instruct and conversation), this will allow your model to work on different sorts of tasks.  
+
+Additionally, users should take care of the length of the samples. If the length of samples is longer than the `max_seq_length`, they will be truncated directly which is detrimental to the model.  
 
 
 
-#### 2. 转化模型权重  
-把huggingface的pretrain权重转成pipeline的模型权重，运行这个脚本(目前仅支持bloom和llama): 
+#### 2. Convert huggingface weights to pipeline weights  
+You can run this script (currently only support bloom and llama):  
 ```
-    INPUT=bigscience/bloomz-7b1-mt # huggingface上的模型名称
-    # INPUT=/path/to/models # 使用save_pretrained保存的模型和tokenizer，一定要包括tokenizer
+    INPUT=bigscience/bloomz-7b1-mt # model name in the huggingface hub
+    # INPUT=/path/to/models # or the path including saved model and tokenizer(saved by `save_pretrained()`), tokenizer is necessary
     SAVE_PATH=./saved_bloomz_7b1_mt_pp
 
     python convert_model.py hg_to_pp --input-path $INPUT --save-path $SAVE_PATH
 ```
 
 
-#### 3. 设置模型的pipeline方法  
-在`configs/ds_config_pp.yml`里面有这样的配置选项:  
+#### 3. Set model parallel method   
+Relevant options are in `configs/ds_config_pp.yml`:  
 ```yml
 model_topo: 
   process_topology: 
@@ -175,53 +180,50 @@ model_topo:
       dims: [8, 1]
   parts: [1, 5, 5, 5, 5, 5, 5, 1] 
 ```
-这个表示一共有`8x1=8`张gpu，并且8张gpu上只有一个模型，如果是`dims: [8,2]`的话，就表示一共有`8x2=16`张gpu，并且每8张gpu上有一个模型，16张gpu上共有两个模型。  
-另外就是`parts`表示一个模型在8张gpu上是怎么分配的，`bloom-7b`的模型共有30个transformer的block，加上两端的embedding共有32个block，`parts: [1, 5, 5, 5, 5, 5, 5, 1]`表示第一张和最后一张gpu上各有1个block(按顺序应该是embedding)，中间的6张gpu上每张有5个block(transformer的block)。  
+`dims: [8, 1]` means there are `8 x 1 = 8` gpus in total, and one model is partitioned into 8 parts, each of which are trained on one gpu. If you have 16 gpus, you can set `dims: [8, 2]`, which means there are two models in total trained in DDP mode, and each model is partitioned into 8 gpus.   
 
-对于llama-7b模型，建议使用`parts: [5, 4, 4, 4, 4, 4, 4, 5]`。  
+`parts` shows how the model is partitioned into 8 gpus. Take `bloom-7b` model for example, it has 30 transformer block, one word-embedding layer and one word-prediction layer, summing up into 32 blocks. `parts: [1, 5, 5, 5, 5, 5, 5, 1]` means the first word embedding block lies on the first gpu, and the last word prediction layer lies on the last gpu, and the remaining 30 transformer blocks evenly lies among the 6 gpus in the middle.  
 
-友情提示: block的分布方式除了要考虑gpu内存之外，还得考虑每张卡的计算负载，因为训练速度决定于最慢的那张gpu，所以要尽量避免某一个gpu计算量比其他gpu大很多的情况。  
-
+For `llama-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We should not only consider the memory but also computation layout among different gpus. The training speed is up to the slowest gpu, so we should let each gpu have equal or similar computation burden.  
 
 
-#### 4. 训练  
-把上面得到的数据集还有模型文件在`configs/ds_config_pp.yml`里面配置好，然后执行训练脚本:  
 
-(1) 单机训练  
-可以运行这个命令:  
+#### 4. Launch training  
+After the above steps to set options associated with dataset, pipeline weights and parallel method in the config file `configs/ds_config_pp.yml`, we can launch training.  
+
+(1) Single node training  
+Train with this command:  
 ```
     $ deepspeed train_ds.py --config configs/ds_config_pp.yml
 ```
 
-(2) 多机训练  
-当8张v100不太够用的时候，就得用多机联机训练。首先需要安装pdsh，然后配置一下ssh服务让不同结点之间可以使用ssh免密登陆，再根据ssh结点名配置编辑hostfile，用下面的命令来启动，这个过程需要保证每台服务器上的代码和各种文件**完全相同**:  
+(2) Multi-node training  
+We need install `pdsh`, and then config ssh service so that the nodes can ssh into each other without password. We also need to write node name and their gpu number in a `hostfile`, and make sure code and dataset files on each node are identical. After that, we can launch training with this command:  
 ```
     $ deepspeed --hostfile ./hostfile train_ds.py --config ds_configs/ds_config_pp.yml
 ```
-hostfile的格式可以参考这个示例的[hostfile](./hostfile)文件。  
+A example of `hostfile` is [here](./hostfile).  
 
-经过实验和推算，当打开`gradient checkpointing`并且将`max_seq_len`设为2048时，使用AdamW优化器，训练llama-13b模型需要14张v100，训练llama-30b需要31张v100，训练llama-65b需要80张v100。  
+According to experments and calculation, with `use_grad_ckpt: true` and `max_seq_len: 2048`, training `llama-13b` requires 14 v100 gpus, training `llama-30b` requires 31 v100 gpus, and training `llama-65b` requires 80 v100 gpus.  
 
-请注意:  
-* 如果你在docker环境做多机训练的话，需要在启动docker时加上`--network=host`选项。  
-* 如果在多机并行的时候遇到NCCL的问题，需要加上一个环境变量用来指定网卡名:  
+Notes:  
+* If you use docker, you need to add option of `--network=host` to start docker container.  
+* If you meet problem about NCCL when you launch multi-node training, you need to set an environment variable to assign network interface:  
 ```
     $ echo "NCCL_SOCKET_IFNAME=eth0" > ./.deepspeed_env
 ```
-这里面的`eth0`就是网卡名，可以使用`ip a`命令查看。  
+Here `eth0` is the network interface name, you can check with command `ip a`.  
 
 
-#### 5. 节省gpu内存的方法  
-训练LLM经常会出现内存不够用的情况，一般都是减小句子的长度，这里分享一些其他方法(不是唯一的办法，其他的请自行摸索):  
+#### 5. Memory efficient Training  
+Here are some tricks that can save memory during training:  
 
 (1) activation checkingpoint  
-这个跟pytorch的`utils.checkpoint`意思一样，在forward之后不保留用于计算梯度的中间结果，而是在backward的时候重新计算一遍，这样会增加计算量，但是可以减小保存中间结果占用的gpu内存空间，属于时间换空间的方法。  
-要想这样做就在`configs/ds_config_pp.yml`文件里面设置:  
+Same as `utils.checkpoint` of pytorch，we free memory of activations right after forward pass, and recompute them when needed during backward pass. To enable this, you can set the option in `configs/ds_config_pp.yml`: 
 ```yml
 use_grad_ckpt: true
 ```
-
-开启这个选项之后可以支持更长的句子长度，下面同样是设置`micro_batch_size=1`，`global_batch_size=128`，训练20个step看log显示的速度(sample/s)。
+This will introduce more computation but can greatly reduce memory usage. It is a method of trading speed with memory, here are some experiment results done with 8 v100 gpus:  
 
 <table class="center" style="margin-left: auto; margin-right: auto"><tbody>
 <!-- START TABLE -->
@@ -272,15 +274,15 @@ use_grad_ckpt: true
 <!-- END RPN TABLE -->
 </tbody></table>
 
-(2) 使用flash-attention   
-flash-attention可以加快qkv的计算速度，而且还能省内存，用过的人都说好，如果你的平台可以运行flash-attention的话，可以在配置文件`configs/ds_config_pp.yml`里面这样设置: 
+(2) flash-attention   
+flash-attention optimizes both speed and memory of qkv attention computation, you can enable this by setting this option in `configs/ds_config_pp.yml`:  
 ```yaml
     use_flash_attn: true
 ```
-到2023.8为止，flash-attention还不支持V100，在本项目里面也只支持llama不支持bloom模型。
+Please be aware that not all gpus are supported by flash attention. For instance, until 2023.8, you cannot use flash attention on v100 gpus. Also, in this repo, you can only use flash attention with llama models but not bloom models.   
 
-(3) 使用zero的offload  
-意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.yml`里面加上下面这个:
+(3) zero-offload  
+zero-offload moves parts of gpu memory into cpu memory and then free the gpu memory to save space on gpus. When the contents in the cpu memory is needed, they will be transferred back to gpu. This method will introduce overhead of communication between gpu memory and cpu memory, and in most occasions will slow down training. Same as grad-checkingpoint, this is also a method of trading speed with memory. If you want to try this method, you can set the option in `configs/ds_config_pp.yml`:   
 ```yaml
 zero_allow_untested_optimizer: true
 zero_force_ds_cpu_optimizer: false
@@ -290,8 +292,8 @@ zero_optimization:
     device: cpu
 ```
 
-(4) 使用其他优化器  
-adamw的一个缺点就是对每个参数都要有param/m/v，也就是要占用三倍参数的存储空间，lion优化器没有这个问题，亲测在我的服务器上使用lion可以在8张v100上训练llama-13b(max_seq_len=128)，如果想试试这个优化器的话，可以在`configs/ds_config_pp.yml`里面把优化器的配置改成这样: 
+(4) Memory efficient optimizer   
+AdamW stores p/m/v of model parameters in fp32, which requires 3 times of space as fp32 model parameters. Other optimizers such as Lion does not require so much memory. You can try Lion by using these options in `configs/ds_config_pp.yml`: 
 ```yml
 optimizer: 
   type: Lion
@@ -301,17 +303,18 @@ optimizer:
     use_triton: true
     weight_decay: 2.0e-4
 ```
+With Lion, you can train llama-13b with 8 v100 gpus (max_seq_len=128).   
 
-注意: 我没有仔细比较过adamw和lion训练好的模型的效果好坏，只是说使用这个可以节省内存，在有限的gpu上训练更大的模型，具体的效果需要使用的人自行把握。另外，这里面使用的训练参数(lr/wd/betas)也是随便设的，可能也需要调一调。    
+Note: AdamW has different mechanism from Lion, thus hyper-parameters tuned for AdamW cannot be used in Lion directly. Users should adjust the lr/wd/betas according to their own need.  
 
 
-#### 6. 将训练好的权重转化为huggingface的权重  
-运行以下脚本:  
+#### 6. Convert trained pipeline weights to huggingface weights
+Run this command:   
 ```
-    $ python convert_model.py pp_to_hg --input-path /path/to/pp/checkpoint --save-path /path/to/hg
+    $ python convert_model.py pp_to_hg --input-path /path/to/trained/pp/checkpoint --save-path /path/to/hg
 ```
 
-到这一步，就可以利用其他项目里面的各种方式加载并且部署了，找到定义模型的地方，像这样手动加载我们自己训练的模型: 
+Until now, we have saved models compatible with huggingface, and we can load and deploy the trained model with methods proposed in other projects.   
 ```python
     config = AutoConfig.from_pretrained('/path/to/hg')
     model = AutoModelForCausalLM.from_pretrained('/path/to/hg')
@@ -319,24 +322,24 @@ optimizer:
 ```
 
 
-### 使用训练好的模型权重做推理  
+### Inference  
 
-#### 1. 使用deepspeed的推理api
-可以参考运行这个代码:  
+#### 1. deepspeed inference api
+An example code is [here](demo.py). Running command is:  
 ```
     $ deepspeed --num_gpus 4 --num_nodes 1 demo.py
 ```
-到0.9.2的时候，deepspeed对llama还没有默认支持tensor-parallel，必须手动指定policy才行而且速度也比bloom慢一些，相比之下bloom是默认支持tensor-parallel的。比如使用两张gpu的时候，bloom可以让每张卡占用一半模型的显存，而不指定policy的llama就得两个gpu都占完整模型的显存。  
+It seems that until version 0.9.2, deepspeed does not support llama so well as bloom in terms of tensor-parallel. Maybe newer version has better support.   
 
 
-#### 2. 使用text-generation-inference的推理服务  
-注意事项:   
-* 需要gpu和驱动的组合可以支持cuda 11.7及以上的版本，我的部署服务器是8张T4的gpu，驱动是515.65.01。  
-* 部署llama的话，需要gpu支持flash-attention，到2023.7.1为止，v100是不支持flash-attention的，所以不能用v100部署llama。  
-* llama-30b的模型的head数不能被8整除，所以不能使用8张gpu对llama-30b的模型做serving。
-* 使用非A100的gpu部署bloom模型，需要加上选项--disable-custom-kernels。
+#### 2. text-generation-inference(TGI)  
+Tips:   
+* The combination of gpu and its driver version should support cuda 11.7 or higher.  
+* TGI relies on flash-attention to deploy llama model, please make sure your deployment platform support flash-attention if you want to deploy llama.  
+* If you deploy bloom on other gpus instead of A100, you should add option of `--disable-custom-kernels`
 
-把模型啥的保存到一个目录:  
+
+Firstly, we need to save model and tokenizer into a directory:  
 ```python
     import re
     import torch.nn as nn
@@ -364,47 +367,38 @@ optimizer:
     model.save_pretrained(save_path)
 ```
 
-启动服务:  
+Then we can launch TGI server:  
 ```
-    model_root=/data/models # 把模型使用save_pretrained的方式，保存到这个目录的一个子目录里面
-    model_id=save_pretrained_bloom # 这个就是上面的子目录的名字
+    model_root=./saved_models # identical `./saved_models` saved as above
+    model_id=llama_13b_hf # identical folder name of `llama_13b_hf` as above
     num_gpus=8
 
     $ docker run -d --gpus all --shm-size 64g -p 8082:80 -v $model_root:/data ghcr.io/huggingface/text-generation-inference:0.8 --num-shard $num_gpus --model-id $model_id # --disable-custom-kernels
 ```
 
-调用服务: 
+If server starts successfully, we can call the service:  
 ```
-    url=127.0.0.1:8082/generate # 运行完统一返回整个结果
-    # url=127.0.0.1:8082/generate_stream # 流式返回结果，生成一个返回一个
+    url=127.0.0.1:8082/generate # return all generated tokens in one time
+    # url=127.0.0.1:8082/generate_stream # return generated tokens one by one
 
     $ curl ${url} \
         -X POST \
-        -d '{"inputs":"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n简化以下段落，使其更易理解\n\n### Input:\n尽管人们普遍认为互联网使我们能够与世界各地的人联系，但仍有一些人不熟悉其基本功能，不理解为什么它变得如此普遍，或者它的真正能力是什么。\n\n### Response:","parameters":{"max_new_tokens":17}}' \
+        -d '{"inputs":"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\nAnswer the following question\n\n### Input:\nWhat is deep learning??\n\n### Response:","parameters":{"max_new_tokens":17}}' \
         -H 'Content-Type: application/json'
 ```
 
-这个性能还蛮好的，亲测可在1张T4上部署7b大小的模型，而且速度很快。  
+TGI is fast and memory efficient, deploying a 7b model only requires one T4 gpu.  
 
 
-### 预训练权重  
+### Pretrained-model 
 
-本来想训个东西放出来给大家玩的，无奈现在没有算力，等我有算力的时候再说吧。  
+Not finished.
 
-
-
-### 最后  
-如果你发现代码里面有任何错误，或者有更好的实现方式，请开issue告诉我，方便及时修正，另外如果又出了什么新的工具或者新玩法或者高质量数据集啥的，也欢迎提issue分享，感激不尽。  
+Will push to `coincheung/cc-bloom-7b` in the huggingface hub if done.  
 
 
+### In The End 
+If you see any error in the code or you have better implementation method, please open issues to tell me. Any suggestions or oppions or shares are appreciated.
 
-================== 分割线 ==========================
 
-### 下面的内容都是胡说八道  
-到了夜深人静的时候，就时常有些奇怪的想法进入脑海，有的光明有的阴暗还有各种异想天开的意淫啥的。   
 
-貌似大家的开源分享意愿还不是很强，各大公司都宣布自己遥遥领先，股价也是纷纷上涨，但是事后好像也没有放出数据啥的或者只放出来了一部分，感觉大部分人都在不动声色的收集别人开源的东西，但是又没怎么分享自己的东西出来给别人用。。。知道有那种特别擅长搜集信息的人，把各家分享的优质资源整合起来，然后包装一下就宣布自己的单位做了个很牛逼的东西，我觉得这种做法一点问题都没有，不需要上纲上线批判啥的，毕竟大家都要吃饭的，追名逐利也是人之常情，就是希望能分享一下中间过程的心得体会还有开源一下整合的数据啥的就更好了。。。  
-
-你说要想实现所谓的人工智能，真的就只有依赖海量算力把模型做大这一条路可以走吗，让我用阴谋论往坏处想一想，因为总要有人来当这个又蠢又坏的讨人嫌，总要有人出来说点让人不爱听的话。。。冷战的时候，如果美国并没有真的实现登月，而是放出一个假消息引导苏联在一件不是很紧要的事情上消耗大量的国力，这样就可以慢慢的拖垮苏联。。。假如我手下有全世界最顶尖的那一批天才科学家为我工作，而且我手里有其他国家都没办法生产的芯片，那么我就会让这些科学家把最前沿的科研成果向依赖芯片算力的方向推动，这样我就可以使劲卖芯片来赚钱了，即使在不需要把模型做得超级大的情况下也有办法实现我们想象中的那种人工智能，我也还是会这么干，反正其他所有人都做不出来更好的。。。 
-
-以上内容全是胡说八道，而且没有任何依据，认真你就输了。
