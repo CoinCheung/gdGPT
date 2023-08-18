@@ -10,6 +10,18 @@ from transformers.models.bloom.modeling_bloom import _make_causal_mask, _expand_
 from deepspeed.pipe import PipelineModule, LayerSpec, TiedLayerSpec
 
 
+def init_weights(model, std):
+    for module in model.modules():
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+
+
 class BloomAlibiEmbedding(nn.Module):
 
     def __init__(self, num_heads):
@@ -51,6 +63,7 @@ class BloomBlockTupleIO(BloomBlock):
             gradient_checkpointing=False):
         self.config = config
         super(BloomBlockTupleIO, self).__init__(config)
+        init_weights(self, config.initializer_range)
         if load_path: self.load_state_dict(torch.load(load_path))
         self.alibi_emb = BloomAlibiEmbedding(self.config.n_head)
         self.gradient_checkpointing = gradient_checkpointing
@@ -115,6 +128,7 @@ class BloomTerminal(nn.Module):
         self.forward = self.forward_last
         if is_first: self.forward = self.forward_first
 
+        init_weights(self, config.initializer_range)
         if load_path: self.load_state_dict(torch.load(load_path))
 
     @property
