@@ -15,6 +15,18 @@ except ImportError:
     flash_attn_func = None
 
 
+def init_weights(model, std):
+    for module in model.modules():
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+
+
 class LlamaAttentionFlashAttn(LlamaAttention):
 
     def __init__(self, config: LlamaConfig):
@@ -113,6 +125,7 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
     def __init__(self, config: LlamaConfig, load_path=None,
             gradient_checkpointing=False, use_flash_attn=False):
         super().__init__(config)
+        init_weights(self, config.initializer_range)
         if load_path: self.load_state_dict(torch.load(load_path))
         self.gradient_checkpointing = gradient_checkpointing
         if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
@@ -193,6 +206,7 @@ class LlamaTerminal(nn.Module):
             self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
             self.forward = self.forward_last
 
+        init_weights(self, config.initializer_range)
         if load_path: self.load_state_dict(torch.load(load_path))
 
     def forward_last(self, inputs):
