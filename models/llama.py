@@ -100,9 +100,10 @@ class LlamaAttentionFlashAttn(LlamaAttention):
         #      attn_output = torch.einsum('bhij,bjhd->bihd', attn, value_states)
         #      print((attn_output_fl - attn_output).abs().max())
 
+        causal = False if past_key_value else True
         attn_output = flash_attn_func(query_states, key_states,
                 value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
-                causal=True)
+                causal=causal)
 
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
