@@ -185,9 +185,8 @@ elif args.command == 'pp_to_hg':
     model_type = config.model_type
 
     pts = []
-    for pt in os.listdir(pp_state_path):
-        if not re.search('layer_\d+-model_states.pt', pt): continue
-        ind = int(re.search('\d+', pt).group(0))
+    for ind in range(config.num_hidden_layers + 2):
+        pt = f'layer_{ind:02d}-model_states.pt'
         pth = osp.join(pp_state_path, pt)
         pts.append((ind, pth))
     pts.sort(key=lambda k: k[0])

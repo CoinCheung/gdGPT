@@ -21,6 +21,7 @@ bf16:
 fp16: 
   enabled: true
   auto_cast: false
+  fused_optimizer: false
   loss_scale: 0
   initial_scale_power: 16
   loss_scale_window: 1000

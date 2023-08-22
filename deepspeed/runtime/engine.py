@@ -1349,7 +1349,9 @@ class DeepSpeedEngine(Module):
             fused_opts = (apex.optimizers.FusedAdam, FusedAdam)
         else:
             fused_opts = FusedAdam
-        if isinstance(optimizer, fused_opts) \
+
+        use_fused_optim = self.config['fp16'].get('fused_optimizer', False)
+        if use_fused_optim and (isinstance(optimizer, fused_opts) \
                 or self.optimizer_name() in [ONEBIT_ADAM_OPTIMIZER, ZERO_ONE_ADAM_OPTIMIZER]:
             if self.dynamic_loss_scale():
                 log_dist(f'Creating fp16 optimizer with dynamic loss scale', ranks=[0])
