@@ -24,7 +24,7 @@ Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, 
 <td align="center"><sup><sub>4096</sub></sup></td>
 </tr>
 <tr>
-<td align="center"><sup><sub>zero3(aka fsdp)</sub></sup></td>
+<td align="center"><sup><sub>zero3<br/>(aka fsdp)</sub></sup></td>
 <td align="center"><sup><sub>15.76</sub></sup></td>
 <td align="center"><sup><sub>13.37</sub></sup></td>
 <td align="center"><sup><sub>13.34</sub></sup></td>
