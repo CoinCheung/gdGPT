@@ -131,6 +131,7 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
         self.gradient_checkpointing = gradient_checkpointing
         if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
 
+    @torch.compile
     def forward(self, inputs):
         """
         Args:
@@ -210,12 +211,14 @@ class LlamaTerminal(nn.Module):
         init_weights(self, config.initializer_range)
         if load_path: self.load_state_dict(torch.load(load_path))
 
+    @torch.compile
     def forward_last(self, inputs):
         hidden_states, attention_mask = inputs
         hidden_states = self.norm(hidden_states)
         logits = F.linear(hidden_states, self.embed_tokens.weight, None)
         return logits
 
+    @torch.compile
     def forward_first(self, inputs):
         output_attentions = False
         output_hidden_states = False

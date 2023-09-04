@@ -24,7 +24,7 @@
 <td align="center"><sup><sub>4096</sub></sup></td>
 </tr>
 <tr>
-<td align="center"><sup><sub>zero3</sub></sup></td>
+<td align="center"><sup><sub>zero3<br/>(aka fsdp)</sub></sup></td>
 <td align="center"><sup><sub>15.76</sub></sup></td>
 <td align="center"><sup><sub>13.37</sub></sup></td>
 <td align="center"><sup><sub>13.34</sub></sup></td>
@@ -51,29 +51,29 @@
 </tr>
 <tr>
 <td align="center"><sup><sub>pipeline</sub></sup></td>
-<td align="center"><sup><sub>40.28</sub></sup></td>
-<td align="center"><sup><sub>39.86</sub></sup></td>
-<td align="center"><sup><sub>36.31</sub></sup></td>
-<td align="center"><sup><sub>27.69</sub></sup></td>
-<td align="center"><sup><sub>20.32</sub></sup></td>
-<td align="center"><sup><sub>16.78</sub></sup></td>
-<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>56.85</sub></sup></td>
+<td align="center"><sup><sub>49.43</sub></sup></td>
+<td align="center"><sup><sub>43.16</sub></sup></td>
+<td align="center"><sup><sub>32.84</sub></sup></td>
+<td align="center"><sup><sub>24.47</sub></sup></td>
+<td align="center"><sup><sub>19.77</sub></sup></td>
+<td align="center"><sup><sub>16.18</sub></sup></td>
 <td align="center"><sup><sub>oom</sub></sup></td>
 <td align="center"><sup><sub>oom</sub></sup></td>
 <td align="center"><sup><sub>oom</sub></sup></td>
 </tr>
 <tr>
 <td align="center"><sup><sub>pipeline<br/>(flash-attn)</sub></sup></td>
-<td align="center"><sup><sub>41.27</sub></sup></td>
-<td align="center"><sup><sub>41.66</sub></sup></td>
-<td align="center"><sup><sub>37.43</sub></sup></td>
-<td align="center"><sup><sub>30.91</sub></sup></td>
-<td align="center"><sup><sub>23.76</sub></sup></td>
-<td align="center"><sup><sub>20.86</sub></sup></td>
-<td align="center"><sup><sub>17.18</sub></sup></td>
-<td align="center"><sup><sub>13.20</sub></sup></td>
-<td align="center"><sup><sub>9.03</sub></sup></td>
-<td align="center"><sup><sub>oom</sub></sup></td>
+<td align="center"><sup><sub>45.79</sub></sup></td>
+<td align="center"><sup><sub>45.06</sub></sup></td>
+<td align="center"><sup><sub>41.09</sub></sup></td>
+<td align="center"><sup><sub>34.14</sub></sup></td>
+<td align="center"><sup><sub>26.29</sub></sup></td>
+<td align="center"><sup><sub>23.38</sub></sup></td>
+<td align="center"><sup><sub>19.48</sub></sup></td>
+<td align="center"><sup><sub>15.00</sub></sup></td>
+<td align="center"><sup><sub>12.54</sub></sup></td>
+<td align="center"><sup><sub>7.75</sub></sup></td>
 </tr>
 </tbody></table>
 

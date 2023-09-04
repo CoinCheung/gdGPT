@@ -68,6 +68,7 @@ class BloomBlockTupleIO(BloomBlock):
         self.alibi_emb = BloomAlibiEmbedding(self.config.n_head)
         self.gradient_checkpointing = gradient_checkpointing
 
+    @torch.compile
     def forward(self, inputs):
         hidden_states, attention_mask = inputs
         batch_size, seq_length, _ = hidden_states.shape
@@ -136,6 +137,7 @@ class BloomTerminal(nn.Module):
         """Easy accessory for the pipeline engine to tie embeddings across stages."""
         return self.word_embeddings.weight
 
+    @torch.compile
     def forward_first(self, tp_inputs):
 
         input_ids = tp_inputs[..., 0]
@@ -178,6 +180,7 @@ class BloomTerminal(nn.Module):
 
         return hidden_states, attention_mask
 
+    @torch.compile
     def forward_last(self, inputs):
         hidden_states, attention_mask = inputs
         lm_output = self.word_embeddings_layernorm(hidden_states)

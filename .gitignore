@@ -168,5 +168,6 @@ llama-7b/
 saved_bloomz_7b1_mt_pp/
 saved_llama_7b_pp/
 configs/ds_config_pp_tmp.yml
+configs/ds_config_zero_tmp.yml
 tmp_train.sh
 log*txt
