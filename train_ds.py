@@ -50,7 +50,7 @@ def get_model(model_path, grad_ckpt=False):
 
     topo = ProcessTopology(**ds_cfg['model_topo']['process_topology'])
     model = PipelineModule(layers=specs,
-                        loss_fn=LMCrossEntropyLoss(),
+                        loss_fn=LMLoss(ds_cfg),
                         topology=topo,
                         partition_method=ds_cfg['model_topo']['parts'],
                         activation_checkpoint_interval=0)

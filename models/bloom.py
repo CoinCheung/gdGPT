@@ -64,7 +64,7 @@ class BloomBlockTupleIO(BloomBlock):
         self.config = config
         super(BloomBlockTupleIO, self).__init__(config)
         init_weights(self, config.initializer_range)
-        if load_path: self.load_state_dict(torch.load(load_path))
+        if load_path: self.load_state_dict(torch.load(load_path), strict=False)
         self.alibi_emb = BloomAlibiEmbedding(self.config.n_head)
         self.gradient_checkpointing = gradient_checkpointing
 
