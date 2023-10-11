@@ -127,7 +127,7 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
             gradient_checkpointing=False, use_flash_attn=False):
         super().__init__(config)
         init_weights(self, config.initializer_range)
-        if load_path: self.load_state_dict(torch.load(load_path))
+        if load_path: self.load_state_dict(torch.load(load_path), strict=False)
         self.gradient_checkpointing = gradient_checkpointing
         if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
 

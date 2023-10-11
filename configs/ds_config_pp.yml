@@ -30,6 +30,8 @@ fp16:
 
 zero_allow_untested_optimizer: true
 
+aux_max_z_loss: # remove this if you don't need this aux loss
+    weight: 2.0e-4
 
 model_topo: 
   process_topology: 
