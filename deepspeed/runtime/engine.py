@@ -299,13 +299,32 @@ class DeepSpeedEngine(Module):
 
         if optimizer or self.optimizer_name():
             has_optimizer = True
-        # If no parameters given by init default to module parameters
-        if model_parameters is None:
-            model_parameters = self.module.parameters()
 
-        # Convert model parameters from generator to list
-        if not isinstance(model_parameters, list):
-            model_parameters = list(model_parameters)
+        no_wd_kws = config['optimizer'].get('no_wd_kws', None)
+        if no_wd_kws:
+            p_group_wd, p_group_nowd = [], []
+            for name, param in self.module.named_parameters():
+                has_wd = True
+                for pat in no_wd_kws:
+                    if re.search(pat, name):
+                        has_wd = False
+                        break
+
+                if has_wd:
+                    #  print('has wd group: ', name)
+                    p_group_wd.append(param)
+                else:
+                    #  print('no wd group: ', name)
+                    p_group_nowd.append(param)
+            model_parameters = [{'params': p_group_wd, }, {'params': p_group_nowd, 'weight_decay': 0.}]
+        else:
+            # If no parameters given by init default to module parameters
+            if model_parameters is None:
+                model_parameters = self.module.parameters()
+
+            # Convert model parameters from generator to list
+            if not isinstance(model_parameters, list):
+                model_parameters = list(model_parameters)
 
         if has_optimizer:
             self._configure_optimizer(optimizer, model_parameters)

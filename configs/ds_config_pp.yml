@@ -9,6 +9,7 @@ optimizer:
     betas: [0.9, 0.999]
     weight_decay: 4.0e-5
     eps: 1.0e-8
+  no_wd_kws: ['bias', 'norm'] # remove this or empty list if no need of this
 scheduler: 
   type: WarmupCosineLR
   params: 
