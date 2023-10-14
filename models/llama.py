@@ -41,22 +41,25 @@ class LlamaAttentionFlashAttn(LlamaAttention):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        padding_mask: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         bsz, q_len, _ = hidden_states.size()
 
-        if self.pretraining_tp > 1:
-            key_value_slicing = (self.num_key_value_heads * self.head_dim) // self.pretraining_tp
-            query_slices = self.q_proj.weight.split((self.num_heads * self.head_dim) // self.pretraining_tp, dim=0)
+        if self.config.pretraining_tp > 1:
+            key_value_slicing = (self.num_key_value_heads * self.head_dim) // self.config.pretraining_tp
+            query_slices = self.q_proj.weight.split(
+                (self.num_heads * self.head_dim) // self.config.pretraining_tp, dim=0
+            )
             key_slices = self.k_proj.weight.split(key_value_slicing, dim=0)
             value_slices = self.v_proj.weight.split(key_value_slicing, dim=0)
 
-            query_states = [F.linear(hidden_states, query_slices[i]) for i in range(self.pretraining_tp)]
+            query_states = [F.linear(hidden_states, query_slices[i]) for i in range(self.config.pretraining_tp)]
             query_states = torch.cat(query_states, dim=-1)
 
-            key_states = [F.linear(hidden_states, key_slices[i]) for i in range(self.pretraining_tp)]
+            key_states = [F.linear(hidden_states, key_slices[i]) for i in range(self.config.pretraining_tp)]
             key_states = torch.cat(key_states, dim=-1)
 
-            value_states = [F.linear(hidden_states, value_slices[i]) for i in range(self.pretraining_tp)]
+            value_states = [F.linear(hidden_states, value_slices[i]) for i in range(self.config.pretraining_tp)]
             value_states = torch.cat(value_states, dim=-1)
 
         else:
@@ -82,35 +85,15 @@ class LlamaAttentionFlashAttn(LlamaAttention):
         past_key_value = (key_states, value_states) if use_cache else None
 
         # repeat k/v heads if n_kv_heads < n_heads
-        #  key_states = repeat_kv(key_states, self.num_key_value_groups)
-        #  value_states = repeat_kv(value_states, self.num_key_value_groups)
+        key_states = repeat_kv(key_states, self.num_key_value_groups)
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        ## Now: qkv are [bs, num_heads, q_len, head_dim]
-        ## flash-atten requires them to be: [bs, q_len, num_heads, head_dim]
-        query_states = torch.einsum('bhld->blhd', query_states)
-        key_states = torch.einsum('bhld->blhd', key_states)
-        value_states = torch.einsum('bhld->blhd', value_states)
+        attn_output = self.qkv_attn_func(query_states, key_states, value_states, attention_mask)
 
-        #  with torch.no_grad():
-        #      attn_output_fl = flash_attn_func(query_states, key_states,
-        #              value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
-        #              causal=True)
-        #      attn = torch.einsum('bihd,bjhd->bhij', query_states, key_states).mul(self.inv_norm_factor)
-        #      attn = F.softmax(attn + attention_mask, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        #      attn_output = torch.einsum('bhij,bjhd->bihd', attn, value_states)
-        #      print((attn_output_fl - attn_output).abs().max())
-
-        causal = False if past_key_value else True
-        attn_output = flash_attn_func(query_states, key_states,
-                value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
-                causal=causal)
-
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
-
-        if self.pretraining_tp > 1:
-            attn_output = attn_output.split(self.hidden_size // self.pretraining_tp, dim=2)
-            o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.pretraining_tp, dim=1)
-            attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.pretraining_tp)])
+        if self.config.pretraining_tp > 1:
+            attn_output = attn_output.split(self.hidden_size // self.config.pretraining_tp, dim=2)
+            o_proj_slices = self.o_proj.weight.split(self.hidden_size // self.config.pretraining_tp, dim=1)
+            attn_output = sum([F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)])
         else:
             attn_output = self.o_proj(attn_output)
 
@@ -118,6 +101,42 @@ class LlamaAttentionFlashAttn(LlamaAttention):
             attn_weights = None
 
         return attn_output, attn_weights, past_key_value
+
+
+    def qkv_attn_func(self, query_states, key_states, value_states, attention_mask):
+
+        ## Now: qkv are [bs, num_heads, q_len, head_dim]
+        ## flash-atten requires them to be: [bs, q_len, num_heads, head_dim]
+        query_states = torch.einsum('bhld->blhd', query_states)
+        key_states = torch.einsum('bhld->blhd', key_states)
+        value_states = torch.einsum('bhld->blhd', value_states)
+
+        attn_output = flash_attn_func(query_states, key_states,
+                value_states, dropout_p=0., softmax_scale=self.inv_norm_factor,
+                causal=True)
+
+        attn_output = attn_output.flatten(2)
+        return attn_output
+
+
+class LlamaAttentionFast(LlamaAttentionFlashAttn):
+
+    def __init__(self, config: LlamaConfig):
+        super().__init__(config)
+
+    def qkv_attn_func(self, query_states, key_states, value_states, attention_mask):
+
+        ## Now: qkv are [bs, num_heads, q_len, head_dim]
+
+        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=True, enable_mem_efficient=True):
+            attn_output = F.scaled_dot_product_attention(query_states, key_states,
+                    value_states, dropout_p=0., attn_mask=attention_mask,
+                    scale=self.inv_norm_factor)
+        attn_output = torch.einsum('bhld->blhd', attn_output)
+
+        bsz, _, q_len, _ = query_states.size()
+        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
+        return attn_output
 
 
 
@@ -130,6 +149,8 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
         if load_path: self.load_state_dict(torch.load(load_path), strict=False)
         self.gradient_checkpointing = gradient_checkpointing
         if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
+        #  self.self_attn = LlamaAttentionFast(config=config)
+        #  self.self_attn = LlamaAttention(config=config)
 
     @torch.compile
     def forward(self, inputs):
@@ -154,14 +175,16 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
         if self.gradient_checkpointing and self.training:
             outputs = torch.utils.checkpoint.checkpoint(
                 super().forward,
-                hidden_states,
-                causal_mask,
-                position_ids,
+                hidden_states=hidden_states,
+                attention_mask=causal_mask,
+                padding_mask=attention_mask,
+                position_ids=position_ids
             )
         else:
             outputs = super().forward(
                     hidden_states=hidden_states,
                     attention_mask=causal_mask,
+                    padding_mask=attention_mask,
                     position_ids=position_ids)
         hidden_states = outputs[0]
 

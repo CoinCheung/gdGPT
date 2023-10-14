@@ -51,9 +51,89 @@ class BloomAlibiEmbedding(nn.Module):
         _, seq_length = attention_mask.shape
         position_ids = ((attention_mask.cumsum(dim=-1) - 1) * attention_mask)
         alibi = self.slopes * position_ids[:, None, :]
-        alibi = alibi.reshape(-1, 1, seq_length)
+        alibi = alibi.reshape(-1, 1, seq_length).detach()
         alibi.requires_grad = False
         return alibi
+
+
+class BloomAttentionFast(BloomAttention):
+
+    def __init__(self, config: BloomConfig):
+        super().__init__(config)
+        self.dropout_p = config.attention_dropout
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        residual: torch.Tensor,
+        alibi: torch.Tensor,
+        attention_mask: torch.Tensor,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        use_cache: bool = False,
+        output_attentions: bool = False,
+    ):
+        fused_qkv = self.query_key_value(hidden_states)  # [batch_size, seq_length, 3 x hidden_size]
+
+        # 3 x [batch_size, seq_length, num_heads, head_dim]
+        (query_layer, key_layer, value_layer) = self._split_heads(fused_qkv)
+
+        batch_size, q_length, _, _ = query_layer.shape
+
+        query_layer = query_layer.transpose(1, 2).reshape(batch_size * self.num_heads, q_length, self.head_dim)
+        key_layer = key_layer.permute(0, 2, 3, 1).reshape(batch_size * self.num_heads, self.head_dim, q_length)
+        value_layer = value_layer.transpose(1, 2).reshape(batch_size * self.num_heads, q_length, self.head_dim)
+        if layer_past is not None:
+            past_key, past_value = layer_past
+            # concatenate along seq_length dimension:
+            #  - key: [batch_size * self.num_heads, head_dim, kv_length]
+            #  - value: [batch_size * self.num_heads, kv_length, head_dim]
+            key_layer = torch.cat((past_key, key_layer), dim=2)
+            value_layer = torch.cat((past_value, value_layer), dim=1)
+
+        _, _, kv_length = key_layer.shape
+
+        if use_cache is True:
+            present = (key_layer, value_layer)
+        else:
+            present = None
+
+
+        query_layer = query_layer.reshape(batch_size, self.num_heads, q_length, self.head_dim)
+        key_layer   = key_layer.reshape(batch_size, self.num_heads, self.head_dim, kv_length)
+        value_layer = value_layer.reshape(batch_size, self.num_heads, kv_length, self.head_dim)
+        key_layer   = torch.einsum('bhdl->bhld', key_layer)
+
+        alibi = alibi.reshape(batch_size, self.num_heads, 1, -1).detach()
+        attn_mask = torch.zeros(batch_size, 1, q_length, kv_length).to(alibi)
+        attn_mask.masked_fill_(attention_mask, torch.finfo(attn_mask.dtype).min)
+        attn_mask = attn_mask + alibi
+        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=True, enable_mem_efficient=True):
+            context_layer = F.scaled_dot_product_attention(query_layer, key_layer,
+                    value_layer, dropout_p=self.dropout_p, attn_mask=attn_mask,
+                    scale=self.inv_norm_factor)
+        context_layer = torch.einsum('bhld->blhd', context_layer)
+        context_layer = context_layer.flatten(2)
+
+        # aggregate results across tp ranks. See here: https://github.com/pytorch/pytorch/issues/76232
+        if self.pretraining_tp > 1 and self.slow_but_exact:
+            slices = self.hidden_size / self.pretraining_tp
+            output_tensor = torch.zeros_like(context_layer)
+            for i in range(self.pretraining_tp):
+                output_tensor = output_tensor + F.linear(
+                    context_layer[:, :, int(i * slices) : int((i + 1) * slices)],
+                    self.dense.weight[:, int(i * slices) : int((i + 1) * slices)],
+                )
+        else:
+            output_tensor = self.dense(context_layer)
+
+        output_tensor = dropout_add(output_tensor, residual, self.hidden_dropout, self.training)
+
+        outputs = (output_tensor, present)
+        if output_attentions:
+            outputs += (attention_probs,)
+
+        return outputs
 
 
 
@@ -67,6 +147,8 @@ class BloomBlockTupleIO(BloomBlock):
         if load_path: self.load_state_dict(torch.load(load_path), strict=False)
         self.alibi_emb = BloomAlibiEmbedding(self.config.n_head)
         self.gradient_checkpointing = gradient_checkpointing
+        ## this slows down training with pytorch 2.1.0, let's see what it would be in future pytorch versions
+        self.self_attention = BloomAttentionFast(config=config)
 
     @torch.compile
     def forward(self, inputs):
