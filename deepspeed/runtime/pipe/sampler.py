@@ -114,7 +114,20 @@ class DistributedSampler(Sampler[T_co]):
                         len(self.dataset),
                         generator=g).tolist()  # type: ignore[arg-type]
         else:
-            indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
+            if hasattr(self.dataset, 'shard_lens'):
+                l_pre = 0
+                shard_inds = []
+                for el in self.dataset.shard_lens:
+                    inds = torch.arange(el) + l_pre
+                    shard_inds.append(inds.tolist())
+                    l_pre += el
+                n_shards = len(shard_inds)
+                inds = torch.arange(n_shards).tolist()
+                indices = []
+                for i in inds:
+                    indices += shard_inds[i]
+            else:
+                indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
 
         if not self.drop_last:
             # add extra samples to make it evenly divisible

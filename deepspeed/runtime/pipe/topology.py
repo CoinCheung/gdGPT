@@ -45,7 +45,6 @@ class ProcessTopology:
             key = self.ProcessCoord(**key)
             # for example, {ProcessCoord(row=0, col=1) : 1}
             self.mapping[key] = global_rank
-            #  self.mapping[key] = 7 - global_rank
 
     def get_rank(self, **coord_kwargs):
         """Return the global rank of a process via its coordinates.

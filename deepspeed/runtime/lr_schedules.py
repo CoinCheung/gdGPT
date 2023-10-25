@@ -109,6 +109,9 @@ def add_tuning_arguments(parser):
                        type=str,
                        default=WARMUP_LOG_RATE,
                        help='WarmupLR increasing function during warmup')
+    # WarmUP cos LR
+    group.add_argument("--warmup_min_ratio", type=float, default=0.01, help='Cosine LR lower bound.')
+    group.add_argument("--cos_min_ratio", type=float, default=0.01, help='Cosine LR lower bound.')
     return parser
 
 
@@ -761,6 +764,7 @@ class WarmupDecayLR(WarmupLR):
             0.0,
             float(self.total_num_steps - self.last_batch_iteration) /
             float(max(1.0, self.total_num_steps - self.warmup_num_steps)))
+
 
 
 class WarmupCosineLR(WarmupLR):
