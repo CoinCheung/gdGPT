@@ -17,6 +17,8 @@ scheduler:
     warmup_min_ratio: 0.02
     cos_min_ratio: 0.2 
 
+gradient_clipping: 2.0
+
 bf16: 
   enabled: false 
 fp16: 

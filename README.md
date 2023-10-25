@@ -7,6 +7,8 @@ This repo provides a codebase based on deepspeed pipeline mode with which you ca
 
 Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
+If your gpu memory is sufficient, you can try to set `micro_batch_size=2`, sometimes this would further speed up training if your `global_batch_size` is large enough.  
+
 <table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
 <!-- START TABLE -->
 <!-- TABLE HEADER -->
@@ -300,7 +302,6 @@ optimizer:
   params: 
     lr: 2.0e-4
     betas: [0.95, 0.98]
-    use_triton: true
     weight_decay: 2.0e-4
 ```
 With Lion, you can train llama-13b with 8 v100 gpus (max_seq_len=128).   

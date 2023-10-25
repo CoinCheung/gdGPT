@@ -138,6 +138,9 @@ class MPS_Accelerator(DeepSpeedAccelerator):
     def is_fp16_supported(self):
         return False
 
+    def supported_dtypes(self):
+        return [torch.float]
+
     # Misc
     def amp(self):
         return
@@ -156,6 +159,9 @@ class MPS_Accelerator(DeepSpeedAccelerator):
 
     def communication_backend_name(self):
         return self._communication_backend_name
+
+    def is_triton_supported(self):
+        return False
 
     # Tensor operations
     @property
@@ -186,8 +192,11 @@ class MPS_Accelerator(DeepSpeedAccelerator):
     def LongTensor(self):
         return
 
-    def pin_memory(self, tensor):
+    def pin_memory(self, tensor, align_bytes=1):
         return tensor.pin_memory()
+
+    def is_pinned(self, tensor):
+        return tensor.is_pinned()
 
     def on_accelerator(self, tensor):
         device_str = str(tensor.device)
@@ -200,7 +209,7 @@ class MPS_Accelerator(DeepSpeedAccelerator):
         try:
             # is op_builder from deepspeed or a 3p version? this should only succeed if it's deepspeed
             # if successful this also means we're doing a local install and not JIT compile path
-            from op_builder import __deepspeed__  # noqa: F401
+            from op_builder import __deepspeed__  # noqa: F401 # type: ignore
 
             return "op_builder"
         except ImportError:
