@@ -10,6 +10,7 @@ from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
 from datasets import *
 from models import *
 
+from accelerate import init_empty_weights
 import deepspeed
 from deepspeed.pipe import PipelineModule
 from deepspeed.runtime.pipe import ProcessTopology
@@ -34,19 +35,22 @@ with open(args.config, 'r') as fr:
 
 
 def get_model(model_path, grad_ckpt=False):
-    config = AutoConfig.from_pretrained(model_path)
+    config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
     model_type = config.model_type
 
-    kwargs = {'config': config, 'load_path': model_path, 'grad_ckpt': grad_ckpt, }
-    if ds_cfg['from_scratch']: kwargs['load_path'] = None
+    kwargs = {'config': config, 'load_path': model_path, 'grad_ckpt': grad_ckpt,
+            'from_scratch': ds_cfg.get('from_scratch', False),
+            'use_flash_attn': ds_cfg.get('use_flash_attn', False),
+    }
     if hasattr(config, 'tie_word_embeddings'):
         kwargs['tie_emb'] = config.tie_word_embeddings
-    kwargs['use_flash_attn'] = ds_cfg.get('use_flash_attn', False)
 
     if re.search('llama', model_type):
         specs = get_llama_causal_lm_specs(**kwargs)
     elif re.search('bloom', model_type):
         specs = get_bloom_causal_lm_specs(**kwargs)
+    elif re.search('baichuan', model_type):
+        specs = get_baichuan2_7b_causal_lm_specs(**kwargs)
 
     topo = ProcessTopology(**ds_cfg['model_topo']['process_topology'])
     model = PipelineModule(layers=specs,
@@ -90,5 +94,8 @@ for i in range(n_iters):
 
 model_engine.save_checkpoint(save_path, tag='checkpoint_final')
 if rk == 0:
-    training_data.save_tokenizer(f'{save_path}/checkpoint_final')
+    with init_empty_weights():
+        raw_model = AutoModelForCausalLM.from_config(model.hg_config, trust_remote_code=True)
+    raw_model.save_pretrained(f'{save_path}/checkpoint_final', state_dict={})
     model.hg_config.save_pretrained(f'{save_path}/checkpoint_final')
+    training_data.save_tokenizer(f'{save_path}/checkpoint_final')

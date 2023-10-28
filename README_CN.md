@@ -9,7 +9,7 @@
 
 如果gpu内存足够大，并且`global_batch_size`设的也比较大的话，可以考虑增加`micro_batch_size` (比如设为2)，有时候可以进一步加快训练速度。  
 
-<table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
+<table class="center" style="margin-left: auto; margin-right: auto; font-size: 160%"><tbody>
 <!-- START TABLE -->
 <!-- TABLE HEADER -->
 <tr>
@@ -100,6 +100,7 @@ zero的运行命令就是:
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
+* accelerate
 
 
 ### 训练  

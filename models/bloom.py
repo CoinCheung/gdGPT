@@ -222,9 +222,9 @@ class BloomTerminal(nn.Module):
     @torch.compile
     def forward_first(self, tp_inputs):
 
-        input_ids = tp_inputs[..., 0]
+        input_ids = tp_inputs[..., 0].contiguous()
+        attention_mask = tp_inputs[..., 1].contiguous()
         past_key_values = None
-        attention_mask = tp_inputs[..., 1]
         head_mask = None
         inputs_embeds = None
 
@@ -277,9 +277,10 @@ class BloomTerminal(nn.Module):
 
 
 def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False,
-        tie_emb=True, use_flash_attn=False):
+        tie_emb=True, use_flash_attn=False, from_scratch=False):
     specs = []
-    ldpth = osp.join(load_path, 'layer_00-model_states.pt') if load_path else None
+    ldpth = osp.join(load_path, 'layer_00-model_states.pt')
+    if from_scratch: ldpth = None
     if tie_emb:
         specs.append(TiedLayerSpec('embed', BloomTerminal, config,
             is_first=True, load_path=ldpth,
@@ -288,14 +289,14 @@ def get_bloom_causal_lm_specs(config, load_path=None, grad_ckpt=False,
         specs.append(BloomTerminal(config, is_first=True, load_path=ldpth))
 
     for i in range(1, config.num_hidden_layers + 1):
-        ldpth = None
-        if load_path: ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
+        ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
+        if from_scratch: ldpth = None
         specs.append(LayerSpec(BloomBlockTupleIO, config, load_path=ldpth,
                    gradient_checkpointing=grad_ckpt))
 
-    ldpth = None
     ind = config.num_hidden_layers + 1
-    if load_path: ldpth = osp.join(load_path, f'layer_{ind:02d}-model_states.pt')
+    ldpth = osp.join(load_path, f'layer_{ind:02d}-model_states.pt')
+    if from_scratch: ldpth = None
     if tie_emb:
         specs.append(TiedLayerSpec('embed', BloomTerminal, config,
             is_first=False, load_path=ldpth,
