@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from .bloom import get_bloom_causal_lm_specs
 from .llama import get_llama_causal_lm_specs
+from .baichuan2_7b import get_baichuan2_7b_causal_lm_specs
 
 
 

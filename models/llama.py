@@ -146,7 +146,9 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
             gradient_checkpointing=False, use_flash_attn=False):
         super().__init__(config)
         init_weights(self, config.initializer_range)
-        if load_path: self.load_state_dict(torch.load(load_path), strict=False)
+        if load_path:
+            print('load checkpoint: ', load_path)
+            self.load_state_dict(torch.load(load_path), strict=False)
         self.gradient_checkpointing = gradient_checkpointing
         if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
         #  self.self_attn = LlamaAttentionFast(config=config)
@@ -214,35 +216,25 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
         return combined_attention_mask
 
 
-class LlamaTerminal(nn.Module):
+class LlamaEnter(nn.Module):
     """
     Args:
         config: LlamaConfig
     """
 
-    def __init__(self, config: LlamaConfig, is_first=True, load_path=None):
-        super(LlamaTerminal, self).__init__()
+    def __init__(self, config: LlamaConfig, load_path=None):
+        super(LlamaEnter, self).__init__()
         self.config = config
         self.embed_tokens = nn.Embedding(config.vocab_size,
                 config.hidden_size, config.pad_token_id)
 
-        self.forward = self.forward_first
-        if not is_first:
-            self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-            self.forward = self.forward_last
-
         init_weights(self, config.initializer_range)
-        if load_path: self.load_state_dict(torch.load(load_path))
+        if load_path:
+            print('load checkpoint: ', load_path)
+            self.load_state_dict(torch.load(load_path))
 
     @torch.compile
-    def forward_last(self, inputs):
-        hidden_states, attention_mask = inputs
-        hidden_states = self.norm(hidden_states)
-        logits = F.linear(hidden_states, self.embed_tokens.weight, None)
-        return logits
-
-    @torch.compile
-    def forward_first(self, inputs):
+    def forward(self, inputs):
         output_attentions = False
         output_hidden_states = False
         use_cache = False
@@ -250,8 +242,8 @@ class LlamaTerminal(nn.Module):
         inputs_embeds = None
         past_key_values = None
         position_ids = None
-        input_ids = inputs[..., 0]
-        attention_mask = inputs[..., 1]
+        input_ids = inputs[..., 0].contiguous()
+        attention_mask = inputs[..., 1].contiguous()
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
@@ -288,34 +280,64 @@ class LlamaTerminal(nn.Module):
         return self.embed_tokens.weight
 
 
+class LlamaExit(nn.Module):
+    """
+    Args:
+        config: LlamaConfig
+    """
+
+    def __init__(self, config: LlamaConfig, load_path=None):
+        super(LlamaExit, self).__init__()
+        self.config = config
+        self.embed_tokens = nn.Embedding(config.vocab_size,
+                config.hidden_size, config.pad_token_id)
+
+        self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+
+        init_weights(self, config.initializer_range)
+        if load_path:
+            print('load checkpoint: ', load_path)
+            self.load_state_dict(torch.load(load_path))
+
+    @torch.compile
+    def forward(self, inputs):
+        hidden_states, attention_mask = inputs
+        hidden_states = self.norm(hidden_states)
+        logits = F.linear(hidden_states, self.embed_tokens.weight, None)
+        return logits
+
+    @property
+    def weight(self):
+        return self.embed_tokens.weight
+
+
 
 ## llama does not tie weights
 def get_llama_causal_lm_specs(config, load_path=None, grad_ckpt=False,
-        tie_emb=False, use_flash_attn=False):
+        tie_emb=False, use_flash_attn=False, from_scratch=False):
     specs = []
-    ldpth = osp.join(load_path, 'layer_00-model_states.pt') if load_path else None
+    ldpth = osp.join(load_path, 'layer_00-model_states.pt')
+    if from_scratch: ldpth = None
     if tie_emb:
-        specs.append(TiedLayerSpec('embed', LlamaTerminal,
-                config, is_first=True, load_path=ldpth,
-                tied_weight_attr='weight'))
+        specs.append(TiedLayerSpec('embed', LlamaEnter,
+                config, load_path=ldpth, tied_weight_attr='weight'))
     else:
-        specs.append(LlamaTerminal(config, is_first=True, load_path=ldpth))
+        specs.append(LlamaEnter(config, load_path=ldpth))
 
     for i in range(1, config.num_hidden_layers+1):
-        ldpth = None
-        if load_path: ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
+        ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
+        if from_scratch: ldpth = None
         specs.append(LayerSpec(LlamaDecoderLayerTupleIO, config,
             load_path=ldpth, gradient_checkpointing=grad_ckpt,
             use_flash_attn=use_flash_attn))
 
-    ldpth = None
     ind = config.num_hidden_layers + 1
-    if load_path: ldpth = osp.join(load_path, f'layer_{ind:02d}-model_states.pt')
+    ldpth = osp.join(load_path, f'layer_{ind:02d}-model_states.pt')
+    if from_scratch: ldpth = None
     if tie_emb:
-        specs.append(TiedLayerSpec('embed', LlamaTerminal,
-                config, is_first=False, load_path=ldpth,
-                tied_weight_attr='weight'))
+        specs.append(TiedLayerSpec('embed', LlamaExit,
+                config, load_path=ldpth, tied_weight_attr='weight'))
     else:
-        specs.append(LlamaTerminal(config, is_first=False, load_path=ldpth))
+        specs.append(LlamaExit(config, load_path=ldpth))
     return specs
 

@@ -9,7 +9,7 @@ Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, 
 
 If your gpu memory is sufficient, you can try to set `micro_batch_size=2`, sometimes this would further speed up training if your `global_batch_size` is large enough.  
 
-<table class="center" style="margin-left: auto; margin-right: auto; font-size: 120%"><tbody>
+<table class="center" style="margin-left: auto; margin-right: auto; font-size: 160%"><tbody>
 <!-- START TABLE -->
 <!-- TABLE HEADER -->
 <tr>
@@ -100,6 +100,7 @@ If you would like to try zero/zero++ yourself, you can run this script (not reco
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
+* accelerate
 
 
 ### Pipeline Training   
@@ -163,7 +164,7 @@ Additionally, users should take care of the length of the samples. If the length
 
 
 #### 2. Convert huggingface weights to pipeline weights  
-You can run this script (currently only support bloom and llama):  
+You can run this script (currently only support bloom, llama, and baichuan2-7b):  
 ```
     INPUT=bigscience/bloomz-7b1-mt # model name in the huggingface hub
     # INPUT=/path/to/models # or the path including saved model and tokenizer(saved by `save_pretrained()`), tokenizer is necessary
@@ -186,7 +187,7 @@ model_topo:
 
 `parts` shows how the model is partitioned into 8 gpus. Take `bloom-7b` model for example, it has 30 transformer block, one word-embedding layer and one word-prediction layer, summing up into 32 blocks. `parts: [1, 5, 5, 5, 5, 5, 5, 1]` means the first word embedding block lies on the first gpu, and the last word prediction layer lies on the last gpu, and the remaining 30 transformer blocks evenly lies among the 6 gpus in the middle.  
 
-For `llama-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We should not only consider the memory but also computation layout among different gpus. The training speed is up to the slowest gpu, so we should let each gpu have equal or similar computation burden.  
+For `llama-7b` and `baichuan2-7b`，it is better to use `parts: [5, 4, 4, 4, 4, 4, 4, 5]`. We should not only consider the memory but also computation layout among different gpus. The training speed is up to the slowest gpu, so we should let each gpu have equal or similar computation burden.  
 
 
 
@@ -330,7 +331,7 @@ An example code is [here](demo.py). Running command is:
 ```
     $ deepspeed --num_gpus 4 --num_nodes 1 demo.py
 ```
-It seems that until version 0.9.2, deepspeed does not support llama so well as bloom in terms of tensor-parallel. Maybe newer version has better support.   
+It seems that until deepspeed version 0.9.2, deepspeed does not support llama so well as bloom in terms of tensor-parallel. Maybe newer version has better support.   
 
 
 #### 2. text-generation-inference(TGI)  

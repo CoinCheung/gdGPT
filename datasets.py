@@ -254,7 +254,8 @@ def get_tokenizer(model_name):
     tokenizer = AutoTokenizer.from_pretrained(model_name,
             add_bos_token=False,
             add_eos_token=False,
-            padding_side='left')
+            padding_side='left',
+            trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.unk_token
     return tokenizer
@@ -279,8 +280,8 @@ class TextDataSet(Dataset):
 
     def save_tokenizer(self, save_path):
         self.tokenizer.save_pretrained(save_path)
-        tokenizer = AutoTokenizer.from_pretrained(save_path)
+        tokenizer = AutoTokenizer.from_pretrained(save_path, trust_remote_code=True)
         tokenizer.save_pretrained(save_path)
-        tokenizer = AutoTokenizer.from_pretrained(save_path)
+        tokenizer = AutoTokenizer.from_pretrained(save_path, trust_remote_code=True)
 
 

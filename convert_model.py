@@ -1,6 +1,7 @@
 
 import os
 import os.path as osp
+import sys
 import argparse
 import re
 import torch
@@ -25,6 +26,17 @@ pp2hg_parser = subparsers.add_parser('pp_to_hg')
 pp2hg_parser.add_argument('--input-path', default='./pp_model/')
 pp2hg_parser.add_argument('--save-path', default='./saved_model/')
 args = parser.parse_args()
+
+
+def save_py_file(obj, save_path):
+    src = sys.modules[obj.__module__].__file__
+    dst = osp.join(save_path, osp.basename(src))
+    with open(src, 'r') as fr:
+        txt = fr.read()
+    txt = re.sub('(?<=from\s)\.\.\.(?=\s)', 'transformers', txt)
+    txt = re.sub('(?<=from\s)\.\.\.(?=[A-Za-z])', 'transformers.', txt)
+    with open(dst, 'w') as fw:
+        fw.write(txt)
 
 
 def convert_bloom_hg2pp(state):
@@ -89,6 +101,34 @@ def convert_llama_hg2pp(state):
     return res
 
 
+def convert_baichuan2_7b_hg2pp(state):
+    res = {
+        0: {
+            'embed_tokens.weight': state['model.embed_tokens.weight'],
+        },
+    }
+    ind_last = -1
+    for k,v in state.items():
+        if not re.search('^model.layers.', k): continue
+        k = re.sub('^model.layers.', '', k)
+        ind = int(re.search('^\d+', k).group())
+        k = re.sub('^\d+\.', '', k)
+        ind += 1
+        if not ind in res: res[ind] = {}
+        res[ind][k] = v
+        ind_last = max(ind_last, ind)
+
+    ind_last += 1
+    last = {
+        ind_last: {
+            'norm.weight': state['model.norm.weight'],
+            'lm_head.weight': state['lm_head.weight'],
+        },
+    }
+    res.update(last)
+    return res
+
+
 def convert_bloom_pp2hg(pts):
     states = {}
     for ind, pt in pts[1:-1]:
@@ -108,6 +148,23 @@ def convert_bloom_pp2hg(pts):
     return states
 
 
+def convert_baichuan2_7b_pp2hg(pts):
+    states = {}
+    for ind, pt in pts[1:-1]:
+        tmp_state = torch.load(pt, map_location='cpu')
+        for k,v in tmp_state.items():
+            k = f'model.layers.{ind - 1}.{k}'
+            states[k] = v
+
+    first_states = torch.load(pts[0][1], map_location='cpu')
+    last_states = torch.load(pts[-1][1], map_location='cpu')
+    states['model.embed_tokens.weight'] = first_states['embed_tokens.weight']
+    #  states['lm_head.weight'] = last_states['word_embeddings.weight']
+    states['model.norm.weight'] = last_states['norm.weight']
+    states['lm_head.weight'] = last_states['lm_head.weight']
+    return states
+
+
 def convert_llama_pp2hg(pts):
     states = {}
     for ind, pt in pts[1:-1]:
@@ -123,7 +180,6 @@ def convert_llama_pp2hg(pts):
     states['model.norm.weight'] = last_states['norm.weight']
     states['lm_head.weight'] = last_states['embed_tokens.weight']
     return states
-
 
 if args.command == 'download':
     model_name = args.model_name
@@ -151,7 +207,7 @@ elif args.command == 'hg_to_pp':
     os.makedirs(pp_state_path, exist_ok=True)
 
     hg_model = AutoModelForCausalLM.from_pretrained(hg_state_path,
-            torch_dtype=torch.half)
+            torch_dtype=torch.half, trust_remote_code=True)
     model_type = hg_model.config.model_type
 
     state = hg_model.state_dict()
@@ -159,29 +215,30 @@ elif args.command == 'hg_to_pp':
         res = convert_bloom_hg2pp(state)
     elif re.search('llama', model_type):
         res = convert_llama_hg2pp(state)
+    elif re.search('baichuan', model_type):
+        res = convert_baichuan2_7b_hg2pp(state)
     else:
         raise NotImplementedError
     for ind, state in res.items():
         torch.save(state, f'{pp_state_path}/layer_{ind:02d}-model_states.pt')
 
-    hg_model.config.save_pretrained(pp_state_path)
-    hg_model.generation_config.save_pretrained(pp_state_path)
+    hg_model.save_pretrained(pp_state_path, state_dict={})
 
     if re.search('^decapoda-research/llama', hg_state_path):
         tokenizer = LlamaTokenizer.from_pretrained(hg_state_path)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(hg_state_path)
+        tokenizer = AutoTokenizer.from_pretrained(hg_state_path, trust_remote_code=True)
     tokenizer.save_pretrained(pp_state_path)
-    tokenizer = AutoTokenizer.from_pretrained(pp_state_path)
+    tokenizer = AutoTokenizer.from_pretrained(pp_state_path, trust_remote_code=True)
     tokenizer.save_pretrained(pp_state_path)
-    tokenizer = AutoTokenizer.from_pretrained(pp_state_path)
+    tokenizer = AutoTokenizer.from_pretrained(pp_state_path, trust_remote_code=True)
 
 
 elif args.command == 'pp_to_hg':
     pp_state_path = args.input_path
     hg_state_path = args.save_path
 
-    config = AutoConfig.from_pretrained(pp_state_path)
+    config = AutoConfig.from_pretrained(pp_state_path, trust_remote_code=True)
     model_type = config.model_type
 
     pts = []
@@ -195,15 +252,18 @@ elif args.command == 'pp_to_hg':
         state = convert_bloom_pp2hg(pts)
     elif re.search('llama', model_type):
         state = convert_llama_pp2hg(pts)
+    elif re.search('baichuan', model_type):
+        state = convert_baichuan2_7b_pp2hg(pts)
     else:
         raise NotImplementedError
 
-    hg_model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.half)
+    hg_model = AutoModelForCausalLM.from_config(config,
+            torch_dtype=torch.half, trust_remote_code=True)
     hg_model.load_state_dict(state)
     hg_model.save_pretrained(hg_state_path, max_shard_size='1GB')
 
-    tokenizer = AutoTokenizer.from_pretrained(pp_state_path)
+    tokenizer = AutoTokenizer.from_pretrained(pp_state_path, trust_remote_code=True)
     tokenizer.save_pretrained(hg_state_path)
-    tokenizer = AutoTokenizer.from_pretrained(hg_state_path)
+    tokenizer = AutoTokenizer.from_pretrained(hg_state_path, trust_remote_code=True)
 
 
