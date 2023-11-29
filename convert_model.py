@@ -39,6 +39,8 @@ def save_py_file(obj, save_path):
         fw.write(txt)
 
 
+### bloom
+
 def convert_bloom_hg2pp(state):
     res = {
         0: {
@@ -73,6 +75,27 @@ def convert_bloom_hg2pp(state):
     return res
 
 
+def convert_bloom_pp2hg(pts):
+    states = {}
+    for ind, pt in pts[1:-1]:
+        tmp_state = torch.load(pt, map_location='cpu')
+        for k,v in tmp_state.items():
+            k = f'transformer.h.{ind - 1}.{k}'
+            states[k] = v
+
+    first_states = torch.load(pts[0][1], map_location='cpu')
+    last_states = torch.load(pts[-1][1], map_location='cpu')
+    states['transformer.word_embeddings.weight'] = first_states['word_embeddings.weight']
+    states['transformer.word_embeddings_layernorm.weight'] = first_states['word_embeddings_layernorm.weight']
+    states['transformer.word_embeddings_layernorm.bias'] = first_states['word_embeddings_layernorm.bias']
+    states['lm_head.weight'] = last_states['word_embeddings.weight']
+    states['transformer.ln_f.weight'] = last_states['word_embeddings_layernorm.weight']
+    states['transformer.ln_f.bias'] = last_states['word_embeddings_layernorm.bias']
+    return states
+
+
+### llama
+
 def convert_llama_hg2pp(state):
     res = {
         0: {
@@ -100,6 +123,25 @@ def convert_llama_hg2pp(state):
     res.update(last)
     return res
 
+
+def convert_llama_pp2hg(pts):
+    states = {}
+    for ind, pt in pts[1:-1]:
+        tmp_state = torch.load(pt, map_location='cpu')
+        for k,v in tmp_state.items():
+            k = f'model.layers.{ind - 1}.{k}'
+            states[k] = v
+
+    first_states = torch.load(pts[0][1], map_location='cpu')
+    last_states = torch.load(pts[-1][1], map_location='cpu')
+    states['model.embed_tokens.weight'] = first_states['embed_tokens.weight']
+    #  states['lm_head.weight'] = last_states['word_embeddings.weight']
+    states['model.norm.weight'] = last_states['norm.weight']
+    states['lm_head.weight'] = last_states['embed_tokens.weight']
+    return states
+
+
+### baichuan-2
 
 def convert_baichuan2_7b_hg2pp(state):
     res = {
@@ -129,24 +171,6 @@ def convert_baichuan2_7b_hg2pp(state):
     return res
 
 
-def convert_bloom_pp2hg(pts):
-    states = {}
-    for ind, pt in pts[1:-1]:
-        tmp_state = torch.load(pt, map_location='cpu')
-        for k,v in tmp_state.items():
-            k = f'transformer.h.{ind - 1}.{k}'
-            states[k] = v
-
-    first_states = torch.load(pts[0][1], map_location='cpu')
-    last_states = torch.load(pts[-1][1], map_location='cpu')
-    states['transformer.word_embeddings.weight'] = first_states['word_embeddings.weight']
-    states['transformer.word_embeddings_layernorm.weight'] = first_states['word_embeddings_layernorm.weight']
-    states['transformer.word_embeddings_layernorm.bias'] = first_states['word_embeddings_layernorm.bias']
-    states['lm_head.weight'] = last_states['word_embeddings.weight']
-    states['transformer.ln_f.weight'] = last_states['word_embeddings_layernorm.weight']
-    states['transformer.ln_f.bias'] = last_states['word_embeddings_layernorm.bias']
-    return states
-
 
 def convert_baichuan2_7b_pp2hg(pts):
     states = {}
@@ -165,21 +189,69 @@ def convert_baichuan2_7b_pp2hg(pts):
     return states
 
 
-def convert_llama_pp2hg(pts):
+### chatglm3-6b
+
+def convert_chatglm3_6b_hg2pp(state):
+    res = {
+        0: {
+            'word_embeddings.weight': state['transformer.embedding.word_embeddings.weight'],
+        },
+    }
+
+    rotery_states = {re.sub('^transformer.', '', k):v
+            for k,v in state.items()
+            if re.search('^transformer.rotary_pos_emb', k)}
+
+    ind_last = -1
+    for k,v in state.items():
+        if not re.search('^transformer.encoder.layers', k): continue
+        k = re.sub('^transformer.encoder.layers.', '', k)
+        ind = int(re.search('^\d+', k).group())
+        k = re.sub('^\d+\.', '', k)
+        ind += 1
+        if not ind in res: res[ind] = {}
+        res[ind][k] = v
+        ind_last = max(ind_last, ind)
+
+    ind_last += 1
+    for ind in range(1, ind_last):
+        res[ind].update(rotery_states)
+
+    last = {
+        ind_last: {
+            'output_layer.weight': state['transformer.output_layer.weight'],
+        },
+    }
+    for k,v in state.items():
+        if re.search('^transformer.encoder.final_layernorm', k) is None: continue
+        k = re.sub('^transformer.encoder.', '', k)
+        last[ind_last][k] = v
+
+    res.update(last)
+    return res
+
+
+def convert_chatglm3_6b_pp2hg(pts):
     states = {}
     for ind, pt in pts[1:-1]:
         tmp_state = torch.load(pt, map_location='cpu')
         for k,v in tmp_state.items():
-            k = f'model.layers.{ind - 1}.{k}'
+            if re.search('^rotary_pos_emb', k):
+                k = f'transformer.{k}'
+            else:
+                k = f'transformer.encoder.layers.{ind - 1}.{k}'
             states[k] = v
 
     first_states = torch.load(pts[0][1], map_location='cpu')
     last_states = torch.load(pts[-1][1], map_location='cpu')
-    states['model.embed_tokens.weight'] = first_states['embed_tokens.weight']
-    #  states['lm_head.weight'] = last_states['word_embeddings.weight']
-    states['model.norm.weight'] = last_states['norm.weight']
-    states['lm_head.weight'] = last_states['embed_tokens.weight']
+    states['transformer.embedding.word_embeddings.weight'] = first_states['word_embeddings.weight']
+    states['transformer.output_layer.weight'] = last_states['output_layer.weight']
+    for k,v in last_states.items():
+        if re.search('^final_layernorm', k) is None: continue
+        k = f'transformer.encoder.{k}'
+        states[k] = v
     return states
+
 
 if args.command == 'download':
     model_name = args.model_name
@@ -217,6 +289,8 @@ elif args.command == 'hg_to_pp':
         res = convert_llama_hg2pp(state)
     elif re.search('baichuan', model_type):
         res = convert_baichuan2_7b_hg2pp(state)
+    elif re.search('chatglm', model_type):
+        res = convert_chatglm3_6b_hg2pp(state)
     else:
         raise NotImplementedError
     for ind, state in res.items():
@@ -241,8 +315,12 @@ elif args.command == 'pp_to_hg':
     config = AutoConfig.from_pretrained(pp_state_path, trust_remote_code=True)
     model_type = config.model_type
 
+    if hasattr(config, 'num_hidden_layers'):
+        n_blocks = config.num_hidden_layers
+    else:
+        n_blocks = config.num_layers
     pts = []
-    for ind in range(config.num_hidden_layers + 2):
+    for ind in range(n_blocks + 2):
         pt = f'layer_{ind:02d}-model_states.pt'
         pth = osp.join(pp_state_path, pt)
         pts.append((ind, pth))
@@ -254,6 +332,8 @@ elif args.command == 'pp_to_hg':
         state = convert_llama_pp2hg(pts)
     elif re.search('baichuan', model_type):
         state = convert_baichuan2_7b_pp2hg(pts)
+    elif re.search('chatglm', model_type):
+        state = convert_chatglm3_6b_pp2hg(pts)
     else:
         raise NotImplementedError
 

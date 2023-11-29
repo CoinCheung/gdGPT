@@ -1,9 +1,12 @@
+<style> table {margin: auto}</style>
 
 [English](./README.md)
 
 ## 使用deepspeed的pipeline方式对LLM进行finetune
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
+
+目前支持的模型有: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`。<br>
 
 下面是在我的8张40G的A100-SXM上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
 
@@ -95,8 +98,8 @@ zero的运行命令就是:
 * python 3.8.12
 * driver 520.61.05
 * cuda11.8 + cudnn8 
-* deepspeed==0.10.0 
-* torch==2.0.1
+* deepspeed==0.11.1 
+* torch==2.1.0
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
@@ -165,7 +168,7 @@ zero的运行命令就是:
 把huggingface的pretrain权重转成pipeline的模型权重，运行这个脚本(目前仅支持bloom和llama): 
 ```
     INPUT=bigscience/bloomz-7b1-mt # huggingface上的模型名称
-    # INPUT=/path/to/models # 使用save_pretrained保存的模型和tokenizer，一定要包括tokenizer
+    # INPUT=/path/to/models # 使用save_pretrained保存的模型和tokenizer，一定要包括tokenizer相关文件
     SAVE_PATH=./saved_bloomz_7b1_mt_pp
 
     python convert_model.py hg_to_pp --input-path $INPUT --save-path $SAVE_PATH
@@ -283,7 +286,8 @@ flash-attention可以加快qkv的计算速度，而且还能省内存，用过�
 ```yaml
     use_flash_attn: true
 ```
-到2023.8为止，flash-attention还不支持V100，在本项目里面也只支持llama不支持bloom模型。
+到2023.8为止，flash-attention还不支持V100，在本项目里面也只支持llama不支持bloom模型。<br>
+像baichuan和chatglm这种使用了pytorch的加速attention，就不用设这个选项了，默认就行。<br>
 
 (3) 使用zero的offload  
 意思是说，在训练过程中，把一部分gpu内存上的模型参数以及优化器状态等移动到cpu内存上，只有用到的时候再移回gpu内存。这种方法会引入通信延时，就是cpu和gpu之间的通信会导致训练时间变长，属于牺牲了一部分速度换取更多的空间的方法，如果想这样做的话，可以在`configs/ds_config_pp.yml`里面加上下面这个:
