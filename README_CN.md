@@ -1,4 +1,3 @@
-<style> table {margin: auto}</style>
 
 [English](./README.md)
 
