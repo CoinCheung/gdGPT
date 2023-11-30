@@ -5,6 +5,8 @@
 
 This repo provides a codebase based on deepspeed pipeline mode with which you can pretrain or finetune LLM faster and more memory-efficiently than zero mode. 
 
+Currently, supported models are: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`.<br>
+
 Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
 If your gpu memory is sufficient, you can try to set `micro_batch_size=2`, sometimes this would further speed up training if your `global_batch_size` is large enough.  
@@ -95,8 +97,8 @@ If you would like to try zero/zero++ yourself, you can run this script (not reco
 * python 3.8.12
 * driver 520.61.05
 * cuda11.8 + cudnn8 
-* deepspeed==0.10.0 
-* torch==2.0.1
+* deepspeed==0.11.1 
+* torch==2.1.0
 * sentencepiece
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
@@ -167,7 +169,7 @@ Additionally, users should take care of the length of the samples. If the length
 You can run this script (currently only support bloom, llama, and baichuan2-7b):  
 ```
     INPUT=bigscience/bloomz-7b1-mt # model name in the huggingface hub
-    # INPUT=/path/to/models # or the path including saved model and tokenizer(saved by `save_pretrained()`), tokenizer is necessary
+    # INPUT=/path/to/models # or the path including saved model and tokenizer(saved by `save_pretrained()`), should contain tokenizer
     SAVE_PATH=./saved_bloomz_7b1_mt_pp
 
     python convert_model.py hg_to_pp --input-path $INPUT --save-path $SAVE_PATH
@@ -282,7 +284,8 @@ flash-attention optimizes both speed and memory of qkv attention computation, yo
 ```yaml
     use_flash_attn: true
 ```
-Please be aware that not all gpus are supported by flash attention. For instance, until 2023.8, you cannot use flash attention on v100 gpus. Also, in this repo, you can only use flash attention with llama models but not bloom models.   
+Please be aware that not all gpus are supported by flash attention. For instance, until 2023.8, you cannot use flash attention on v100 gpus. Also, in this repo, you can only use flash attention with llama models but not bloom models.<br>
+As for `baichuan2-7b` and `chatglm3-6b`, they use pytorch attention api, so we do not need to care about this flash-attention option for them.<br>
 
 (3) zero-offload  
 zero-offload moves parts of gpu memory into cpu memory and then free the gpu memory to save space on gpus. When the contents in the cpu memory is needed, they will be transferred back to gpu. This method will introduce overhead of communication between gpu memory and cpu memory, and in most occasions will slow down training. Same as grad-checkingpoint, this is also a method of trading speed with memory. If you want to try this method, you can set the option in `configs/ds_config_pp.yml`:   

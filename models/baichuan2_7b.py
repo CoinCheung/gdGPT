@@ -137,7 +137,6 @@ def get_baichuan2_7b_components(model_path):
 
             return combined_attention_mask
 
-    #  return DecoderLayerTupleIO, mod.NormHead, mod.RMSNorm
     return DecoderLayerTupleIO, NormHead, RMSNorm
 
 
@@ -245,7 +244,7 @@ class BaichuanExit(nn.Module):
 def get_baichuan2_7b_causal_lm_specs(config, load_path=None, grad_ckpt=False,
         tie_emb=False, use_flash_attn=False, from_scratch=False):
 
-    block_cls, head_cls, norm_cls = get_baichuan2_7b_components(load_path)
+    DecoderLayerTupleIO, NormHead, RMSNorm = get_baichuan2_7b_components(load_path)
 
     specs = []
     ldpth = osp.join(load_path, 'layer_00-model_states.pt')
@@ -260,7 +259,7 @@ def get_baichuan2_7b_causal_lm_specs(config, load_path=None, grad_ckpt=False,
     for i in range(1, config.num_hidden_layers+1):
         ldpth = osp.join(load_path, f'layer_{i:02d}-model_states.pt')
         if from_scratch: ldpth = None
-        specs.append(LayerSpec(block_cls, config,
+        specs.append(LayerSpec(DecoderLayerTupleIO, config,
             load_path=ldpth, gradient_checkpointing=grad_ckpt,
             use_flash_attn=use_flash_attn))
 
@@ -269,10 +268,10 @@ def get_baichuan2_7b_causal_lm_specs(config, load_path=None, grad_ckpt=False,
     if from_scratch: ldpth = None
     if tie_emb:
         specs.append(TiedLayerSpec('embed', BaichuanExit,
-                config, head_cls=head_cls, norm_cls=norm_cls, load_path=ldpth,
+                config, head_cls=NormHead, norm_cls=RMSNorm, load_path=ldpth,
                 tied_weight_attr='weight'))
     else:
-        specs.append(BaichuanExit(config, head_cls=head_cls, norm_cls=norm_cls,
+        specs.append(BaichuanExit(config, head_cls=NormHead, norm_cls=RMSNorm,
                 load_path=ldpth))
     return specs
 
