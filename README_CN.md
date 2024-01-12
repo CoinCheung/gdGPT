@@ -172,11 +172,11 @@ zero的运行命令就是:
                     },
                 ],
                 "ans": "我搜了一下没找到相关内容，但是我可以给你随便编点东西出来作为回答: The phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the XiaoHuangShu.\n\n您对我的回答满意吗?",
-            }
+            } // ans-api
             ],
             ["ask", "不满意"],
             ["ans", "那你问别人去啊"]
-        ]
+        ] // rounds
     },
 
     // 给一段文本，然后针对文本问答的数据格式

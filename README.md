@@ -173,11 +173,11 @@ The training samples should be in json format as follows:
                     },
                 ],
                 "ans": "The search tool returned three results, all from the King James Version of the Bible.\nThe phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the Bible.",
-            }
-            ],
+            } // ans-api
+            ], 
             ["ask", "I do not think you are correct."],
             ["ans", "Then you should ask others, not me."]
-        ]
+        ] // rounds
     },
 
     // samples used for mrc, which means one or several rounds of QA based a piece of reference paragraph
