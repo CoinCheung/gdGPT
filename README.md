@@ -171,9 +171,8 @@ The training samples should be in json format as follows:
                         "api_param": "{\"query\": \"GuoChanQu\", \"version\": \"King James Version\"}",
                         "api_res": "Status Code: 200. Response: {\"search_results\":[{\"book\":\"Mark\",\"chapter\":12,\"verse\":31,\"text\":\"And the second is like, namely this, Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.\"},{\"book\":\"Matthew\",\"chapter\":22,\"verse\":39,\"text\":\"And the second is like unto it, Thou shalt love thy neighbour as thyself.\"},{\"book\":\"Luke\",\"chapter\":10,\"verse\":27,\"text\":\"And he answering said, Thou shalt love the Lord thy God with all thy heart, and with all thy soul, and with all thy strength, and with all thy mind; and thy neighbour as thyself.\"}]}",
                         },
-                    ]
-                    "ans": "The search tool returned three results, all from the King James Version of the Bible.\nThe phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the Bible.",}
-                ],
+                    ],
+                "ans": "The search tool returned three results, all from the King James Version of the Bible.\nThe phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the Bible.",}],
                 ["ask", "I do not think you are correct."],
                 ["ans", "Then you should ask others, not me."]
             ]
