@@ -5,11 +5,23 @@ import re
 import random
 import json
 from bisect import bisect
+import ast
+import astunparse
 import torch
 from torch.utils.data import Dataset
 
 from transformers import AutoTokenizer, LlamaTokenizer
 
+
+def api_format_func(api_obj):
+    function_name = ast.Name(id=api_obj['api_name'])
+    params = api_obj['api_param']
+    keywords = [
+        ast.keyword(arg=arg_name, value=ast.Constant(arg_value))
+        for arg_name, arg_value in params.items()
+    ]
+    func_call = ast.Call(func=function_name, args=[], keywords=keywords)
+    return astunparse.unparse(func_call).strip()
 
 
 def truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer,
@@ -68,6 +80,11 @@ def process_given_sentence(tokenizer, txt, ignore_label):
 
 def process_conversation_rounds(tokenizer, rounds, role_map, ignore_known):
     rounds_inp, rounds_attm, rounds_lb = [], [], []
+    def add_to_list(inp, attm, lb):
+        rounds_inp.append(inp)
+        rounds_attm.append(attm)
+        rounds_lb.append(lb)
+
     for role, txt in rounds:
         if role == 'ask':
             txt = f'### {role_map[role]}: {txt} \n'
@@ -84,6 +101,29 @@ def process_conversation_rounds(tokenizer, rounds, role_map, ignore_known):
             rounds_inp += [p_inp, t_inp]
             rounds_attm += [p_attm, t_attm]
             rounds_lb += [p_lb, t_lb]
+        elif role == 'ans-api':
+            api_objs = txt
+            prefix = f'### {role_map["ans"]}: '
+            p_inp, p_attm, p_lb = process_given_sentence(tokenizer, prefix, ignore_known)
+            for ob in api_objs['actions']:
+                add_to_list(p_inp, p_attm, p_lb)
+                gen_txt = ob['inner_thought'] + '\n'
+                gen_txt += '#### api call\n```python\n' \
+                        + api_format_func(ob) + '\n```  ' + tokenizer.eos_token
+                g_inp, g_attm, g_lb = process_given_sentence(tokenizer, gen_txt, False)
+                add_to_list(g_inp, g_attm, g_lb)
+
+                api_ret = ob['api_res']
+                if not isinstance(api_ret, str):
+                    api_ret = json.dumps(api_ret, indent=2, ensure_ascii=False)
+                api_ret = '\n#### api output\n' + api_ret + '\n'
+                a_inp, a_attm, a_lb = process_given_sentence(tokenizer, api_ret, True)
+                add_to_list(a_inp, a_attm, a_lb)
+
+            add_to_list(p_inp, p_attm, p_lb)
+            ans = api_objs['ans'] + '  ' + tokenizer.eos_token
+            o_inp, o_attm, o_lb = process_given_sentence(tokenizer, ans, False)
+            add_to_list(o_inp, o_attm, o_lb)
         else:
             raise NotImplementedError
     return rounds_inp, rounds_attm, rounds_lb
@@ -194,6 +234,66 @@ def parse_conversation_sample(tokenizer, ob, max_seq_len, ignore_known=False):
     return inputs, labels
 
 
+def parse_conversation_with_tools_sample(tokenizer, ob, max_seq_len, ignore_known=False):
+    '''
+    数据格式
+        ob = {
+            "type": "conver_has_api",
+
+            // 这个字段是一段文档，详细描述这个api是怎么用的
+            "api_desc": "getVerse: Retrieve the text of a specific verse from the XiaoHuangShu.\nParameters: {\"book\": \"Required. string. The name of the book.\", \"chapter\": \"Required. integer. The chapter number.\", \"verse\": \"Required. integer. The verse number.\"}\nOutput: Returns a JSON object containing the text of the requested verse.\n - Format: application/json\n - Structure: Object{text}\nsearch: Search the XiaoHuangShu for specific keywords or phrases.\nParameters: {\"query\": \"Required. string. The keyword or phrase to search for.\", \"version\": \"string. The XiaoHuangShu version to search in.\"}\nOutput: Returns a JSON object containing an array of search results, each containing the book, chapter, and verse where the keyword or phrase was found, as well as the text of the verse.\n - Format: application/json\n - Structure: Array[Object{book, chapter, verse, text}]\ngetVersions: Retrieve metadata for specific XiaoHuangShu versions.\nParameters: {\"language\": \"string. The language of the XiaoHuangShu version.\", \"publisher\": \"string. The publisher of the XiaoHuangShu version.\"}\nOutput: Returns a JSON object containing an array of XiaoHuangShu versions that match the specified criteria, each containing the name of the version, the language used, the publication date, and the publisher.\n - Format: application/json\n - Structure: Array[Object{name, language, publication_date, publisher}]\n",
+
+            "rounds": [
+                ["ask", "你好"],
+                ["ans", "你好，找我干啥"],
+                ["ask", "有没有法语写的小黄书呢"],
+                ["ans-api", {
+                    "actions": [
+                        {
+                            "inner_thought": "擦，我哪懂这个啊，那就调用搜索api试试吧，关键词就用XiaoHuangShu看看行不行",
+                            "api_name": "search",
+                            "api_param": "{\"query\": \"XiaoHuangShu\", \"version\": \"King James Version\"}",
+                            "api_res": "Status Code: 200. Response: {\"search_results\":[{\"book\":\"Mark\",\"chapter\":12,\"verse\":31,\"text\":\"And the second is like, namely this, Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.\"},{\"book\":\"Matthew\",\"chapter\":22,\"verse\":39,\"text\":\"And the second is like unto it, Thou shalt love thy neighbour as thyself.\"},{\"book\":\"Luke\",\"chapter\":10,\"verse\":27,\"text\":\"And he answering said, Thou shalt love the Lord thy God with all thy heart, and with all thy soul, and with all thy strength, and with all thy mind; and thy neighbour as thyself.\"}]}",
+                        },
+                        {
+                            "inner_thought": "结果不是很理想啊，那再试试用关键词GuoChanQu搜搜看",
+                            "api_name": "search",
+                            "api_param": "{\"query\": \"GuoChanQu\", \"version\": \"King James Version\"}",
+                            "api_res": "Status Code: 200. Response: {\"search_results\":[{\"book\":\"Mark\",\"chapter\":12,\"verse\":31,\"text\":\"And the second is like, namely this, Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.\"},{\"book\":\"Matthew\",\"chapter\":22,\"verse\":39,\"text\":\"And the second is like unto it, Thou shalt love thy neighbour as thyself.\"},{\"book\":\"Luke\",\"chapter\":10,\"verse\":27,\"text\":\"And he answering said, Thou shalt love the Lord thy God with all thy heart, and with all thy soul, and with all thy strength, and with all thy mind; and thy neighbour as thyself.\"}]}",
+                        },
+                    ]
+                    "ans": "我搜了一下没找到相关内容，但是我可以给你随便编点东西出来作为回答: The phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the XiaoHuangShu.\n\n您对我的回答满意吗?",}
+                ],
+                ["ask", "不满意"],
+                ["ans", "那你问别人去啊"]
+            ]
+        }
+    api返回的部分的label是ignore的，因为不要求模型会生成api返回的结果。
+    不是很认可这种方法，如果有特别多的api可以调用的话，那光api文档就很长了，前面的context过长，感觉效率太低了
+    '''
+    rounds_inp, rounds_attm, rounds_lb = [], [], []
+    # process header part
+
+    header = "Answer the following questions as best as you can. You have access to the following tool(s):\n" + json.dumps(ob['api_desc'], indent=2, ensure_ascii=False)
+    h_inp, h_attm, h_lb = process_given_sentence(tokenizer, header, True)
+
+    # process rounds
+    role_map = {'ask': 'Human', 'ans': 'Assistent'}
+    res_rounds = process_conversation_rounds(tokenizer, ob['rounds'],
+                                             role_map, ignore_known)
+
+    # combine
+    input_ids = torch.cat([h_inp, ] + res_rounds[0], dim=0)
+    att_mask = torch.cat([h_attm, ] + res_rounds[1], dim=0)
+    labels = torch.cat([h_lb, ] + res_rounds[2], dim=0)
+
+    res = truncate_and_pad_func(input_ids, att_mask, labels, max_seq_len, tokenizer)
+    inputs, labels = res
+    #  labels[-1] = tokenizer.eos_token_id
+
+    return inputs, labels
+
+
 def parse_ref_qa_sample(tokenizer, ob, max_seq_len, ignore_known=False):
     '''
     数据格式
@@ -243,6 +343,8 @@ def get_sample_from_jobj(tokenizer, ob, max_seq_len):
         res = parse_conversation_sample(tokenizer, ob, max_seq_len, ignore_known=True)
     elif stype == 'ref_qa':
         res = parse_ref_qa_sample(tokenizer, ob, max_seq_len, ignore_known=True)
+    elif stype == 'conver_has_api':
+        res = parse_conversation_with_tools_sample(tokenizer, ob, max_seq_len, ignore_known=True)
     else:
         raise NotImplementedError
 
