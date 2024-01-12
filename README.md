@@ -146,6 +146,40 @@ The training samples should be in json format as follows:
         ]
     },
 
+    // samples used for multi-round conversation with api ability
+    {
+        "type": "conver_has_api",
+
+        // this field gives a brief doc of api
+        "api_desc": "getVerse: Retrieve the text of a specific verse from the XiaoHuangShu.\nParameters: {\"book\": \"Required. string. The name of the book.\", \"chapter\": \"Required. integer. The chapter number.\", \"verse\": \"Required. integer. The verse number.\"}\nOutput: Returns a JSON object containing the text of the requested verse.\n - Format: application/json\n - Structure: Object{text}\nsearch: Search the XiaoHuangShu for specific keywords or phrases.\nParameters: {\"query\": \"Required. string. The keyword or phrase to search for.\", \"version\": \"string. The XiaoHuangShu version to search in.\"}\nOutput: Returns a JSON object containing an array of search results, each containing the book, chapter, and verse where the keyword or phrase was found, as well as the text of the verse.\n - Format: application/json\n - Structure: Array[Object{book, chapter, verse, text}]\ngetVersions: Retrieve metadata for specific XiaoHuangShu versions.\nParameters: {\"language\": \"string. The language of the XiaoHuangShu version.\", \"publisher\": \"string. The publisher of the XiaoHuangShu version.\"}\nOutput: Returns a JSON object containing an array of XiaoHuangShu versions that match the specified criteria, each containing the name of the version, the language used, the publication date, and the publisher.\n - Format: application/json\n - Structure: Array[Object{name, language, publication_date, publisher}]\n",
+
+        "rounds": [
+            ["ask", "Hello"],
+            ["ans", "Hi, what can I do for you ?"],
+            ["ask", "can you search the Bible for the phrase \"love your neighbor\"? Please include the book, chapter, and verse where it's found."],
+            ["ans-api", {
+                "actions": [
+                    {
+                        "inner_thought": "I need to use the search tool to find the phrase in the Bible.",
+                        "api_name": "search",
+                        "api_param": "{\"query\": \"XiaoHuangShu\", \"version\": \"King James Version\"}",
+                        "api_res": "Status Code: 200. Response: {\"search_results\":[{\"book\":\"Mark\",\"chapter\":12,\"verse\":31,\"text\":\"And the second is like, namely this, Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.\"},{\"book\":\"Matthew\",\"chapter\":22,\"verse\":39,\"text\":\"And the second is like unto it, Thou shalt love thy neighbour as thyself.\"},{\"book\":\"Luke\",\"chapter\":10,\"verse\":27,\"text\":\"And he answering said, Thou shalt love the Lord thy God with all thy heart, and with all thy soul, and with all thy strength, and with all thy mind; and thy neighbour as thyself.\"}]}",
+                    },
+                    {
+                        "inner_thought": "Let me search again with another key word",
+                        "api_name": "search",
+                        "api_param": "{\"query\": \"GuoChanQu\", \"version\": \"King James Version\"}",
+                        "api_res": "Status Code: 200. Response: {\"search_results\":[{\"book\":\"Mark\",\"chapter\":12,\"verse\":31,\"text\":\"And the second is like, namely this, Thou shalt love thy neighbour as thyself. There is none other commandment greater than these.\"},{\"book\":\"Matthew\",\"chapter\":22,\"verse\":39,\"text\":\"And the second is like unto it, Thou shalt love thy neighbour as thyself.\"},{\"book\":\"Luke\",\"chapter\":10,\"verse\":27,\"text\":\"And he answering said, Thou shalt love the Lord thy God with all thy heart, and with all thy soul, and with all thy strength, and with all thy mind; and thy neighbour as thyself.\"}]}",
+                    },
+                ],
+                "ans": "The search tool returned three results, all from the King James Version of the Bible.\nThe phrase \"love your neighbor\" can be found in Mark 12:31, Matthew 22:39, and Luke 10:27 in the King James Version of the Bible.",
+            } // ans-api
+            ], 
+            ["ask", "I do not think you are correct."],
+            ["ans", "Then you should ask others, not me."]
+        ] // rounds
+    },
+
     // samples used for mrc, which means one or several rounds of QA based a piece of reference paragraph
     {
         "type": "ref_qa",
