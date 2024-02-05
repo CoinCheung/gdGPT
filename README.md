@@ -5,7 +5,7 @@
 
 This repo provides a codebase based on deepspeed pipeline mode with which you can pretrain or finetune LLM faster and more memory-efficiently than zero mode. 
 
-Currently, supported models are: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`.<br>
+Currently, supported models are: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`, `mixtral-8x7b`.<br>
 
 Following is benchmark done with 8 A100 (SXM-40G) gpu, the model is llamaV1-7b, with settngs of `micro_batch_size=1`，`global_batch_size=128`，`fp16=True`. The speed is measured as "sample/s" within 20 global steps.
 
@@ -100,9 +100,9 @@ If you would like to try zero/zero++ yourself, you can run this script (not reco
 * deepspeed==0.11.1 
 * torch==2.1.0
 * sentencepiece
+* transformers==4.36.2
 * protobuf==3.20.0 (python pip install)
 * flash_attn==2.0.2
-* accelerate
 
 
 ### Pipeline Training   

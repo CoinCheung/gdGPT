@@ -53,6 +53,8 @@ def get_model(model_path, grad_ckpt=False):
         specs = get_baichuan2_7b_causal_lm_specs(**kwargs)
     elif re.search('chatglm', model_type):
         specs = get_chatglm3_6b_causal_lm_specs(**kwargs)
+    elif re.search('mixtral', model_type):
+        specs = get_mixtral_causal_lm_specs(**kwargs)
 
     topo = ProcessTopology(**ds_cfg['model_topo']['process_topology'])
     model = PipelineModule(layers=specs,

@@ -144,13 +144,17 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
 
     def __init__(self, config: LlamaConfig, load_path=None,
             gradient_checkpointing=False, use_flash_attn=False):
+        if use_flash_attn: config._attn_implementation = "flash_attention_2"
+        self._use_sdpa = config._attn_implementation == "sdpa"
+        self._use_flash_attention_2 = config._attn_implementation == "flash_attention_2"
+
         super().__init__(config)
         init_weights(self, config.initializer_range)
         if load_path:
             print('load checkpoint: ', load_path)
             self.load_state_dict(torch.load(load_path), strict=False)
         self.gradient_checkpointing = gradient_checkpointing
-        if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
+        #  if use_flash_attn: self.self_attn = LlamaAttentionFlashAttn(config=config)
         #  self.self_attn = LlamaAttentionFast(config=config)
         #  self.self_attn = LlamaAttention(config=config)
 
@@ -177,10 +181,10 @@ class LlamaDecoderLayerTupleIO(LlamaDecoderLayer):
         if self.gradient_checkpointing and self.training:
             outputs = torch.utils.checkpoint.checkpoint(
                 super().forward,
-                hidden_states=hidden_states,
-                attention_mask=causal_mask,
-                padding_mask=attention_mask,
-                position_ids=position_ids
+                hidden_states,
+                causal_mask,
+                attention_mask,
+                position_ids
             )
         else:
             outputs = super().forward(
