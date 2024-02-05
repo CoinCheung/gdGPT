@@ -5,7 +5,7 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import nn
 from transformers.models.bloom.modeling_bloom import *
-from transformers.models.bloom.modeling_bloom import _make_causal_mask, _expand_mask
+from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 
 from deepspeed.pipe import PipelineModule, LayerSpec, TiedLayerSpec
 
@@ -154,10 +154,19 @@ class BloomBlockTupleIO(BloomBlock):
     def forward(self, inputs):
         hidden_states, attention_mask = inputs
         batch_size, seq_length, _ = hidden_states.shape
-        causal_mask = self._prepare_attn_mask(
-            attention_mask, input_shape=(batch_size, seq_length),
+        #  causal_mask = self._prepare_attn_mask(
+        #      attention_mask, input_shape=(batch_size, seq_length),
+        #      past_key_values_length=0,
+        #  ).detach()
+
+        causal_mask = _prepare_4d_causal_attention_mask(
+            attention_mask,
+            input_shape=(batch_size, seq_length),
+            inputs_embeds=hidden_states,
             past_key_values_length=0,
-        ).detach()
+        )
+        causal_mask = causal_mask.bool()
+
         alibi = self.alibi_emb(attention_mask)
 
         if self.gradient_checkpointing and self.training:

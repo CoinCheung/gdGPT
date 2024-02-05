@@ -40,9 +40,11 @@ model_topo:
   process_topology: 
     axes: [pipe, data]
     dims: [8, 1]
-  # parts: [1, 5, 5, 5, 5, 5, 5, 1]  # bloom-7b
+  parts: [1, 5, 5, 5, 5, 5, 5, 1]  # bloom-7b
   # parts: [5, 4, 4, 4, 4, 4, 4, 5]  # llama-7b
-  parts: [5, 4, 4, 4, 4, 4, 4, 5]  # baichuan-2-7b
+  # parts: [5, 4, 4, 4, 4, 4, 4, 5]  # baichuan-2-7b
+  # parts: [3, 4, 4, 4, 4, 4, 4, 3]  # chatglm3-6b
+  # parts: [5, 4, 4, 4, 4, 4, 4, 5]  # mixtral-7bx8
 
 from_scratch: false
 model_path: ./saved_bloomz_7b1_mt_pp/

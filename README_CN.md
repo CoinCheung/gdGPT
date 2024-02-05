@@ -5,7 +5,7 @@
 
 这个项目没有什么理论上的创新，没有提出茴香豆的新写法，也没发明什么新工具，仅仅是基于现有的方法和库提供一套简洁易扩展的代码，可以在8张v100服务器上训练7b的模型(对全部模型参数做full-finetune的那种训练)，可以在更多gpu上训练更大的模型，也可以联机训练，速度比zero3方法更快，并且支持更长的输入序列长度。    
 
-目前支持的模型有: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`。<br>
+目前支持的模型有: `bloom`, `llama`, `baichuan2-7b`, `chatglm3-6b`，`mixtral-8x7b`。<br>
 
 下面是在我的8张40G的A100-SXM上测出来的训练速度，使用的模型是llama-7b，设置是`micro_batch_size=1`，`global_batch_size=128`，`fp16=True`，训练20个step看log显示的速度(sample/s)。  
 
@@ -100,8 +100,8 @@ zero的运行命令就是:
 * deepspeed==0.11.1 
 * torch==2.1.0
 * sentencepiece
+* transformers==4.36.2
 * protobuf==3.20.0 (python pip install)
-* flash_attn==2.0.2
 * accelerate
 
 

@@ -253,6 +253,55 @@ def convert_chatglm3_6b_pp2hg(pts):
     return states
 
 
+
+### mixtral-8x7b
+
+def convert_mixtral_8x_7b_hg2pp(state):
+    res = {
+        0: {
+            'embed_tokens.weight': state['model.embed_tokens.weight'],
+        },
+    }
+    ind_last = -1
+    for k,v in state.items():
+        if not re.search('^model.layers.', k): continue
+        k = re.sub('^model.layers.', '', k)
+        ind = int(re.search('^\d+', k).group())
+        k = re.sub('^\d+\.', '', k)
+        ind += 1
+        if not ind in res: res[ind] = {}
+        res[ind][k] = v
+        ind_last = max(ind_last, ind)
+
+    ind_last += 1
+    last = {
+        ind_last: {
+            'norm.weight': state['model.norm.weight'],
+            'embed_tokens.weight': state['lm_head.weight'],
+        },
+    }
+    res.update(last)
+    return res
+
+
+def convert_mixtral_8x_7b_pp2hg(pts):
+    states = {}
+    for ind, pt in pts[1:-1]:
+        tmp_state = torch.load(pt, map_location='cpu')
+        for k,v in tmp_state.items():
+            k = f'model.layers.{ind - 1}.{k}'
+            states[k] = v
+
+    first_states = torch.load(pts[0][1], map_location='cpu')
+    last_states = torch.load(pts[-1][1], map_location='cpu')
+    states['model.embed_tokens.weight'] = first_states['embed_tokens.weight']
+    #  states['lm_head.weight'] = last_states['word_embeddings.weight']
+    states['model.norm.weight'] = last_states['norm.weight']
+    states['lm_head.weight'] = last_states['embed_tokens.weight']
+    return states
+
+
+
 if args.command == 'download':
     model_name = args.model_name
     save_path = args.save_path
@@ -291,6 +340,8 @@ elif args.command == 'hg_to_pp':
         res = convert_baichuan2_7b_hg2pp(state)
     elif re.search('chatglm', model_type):
         res = convert_chatglm3_6b_hg2pp(state)
+    elif re.search('mixtral', model_type):
+        res = convert_mixtral_8x_7b_hg2pp(state)
     else:
         raise NotImplementedError
     for ind, state in res.items():
@@ -334,6 +385,8 @@ elif args.command == 'pp_to_hg':
         state = convert_baichuan2_7b_pp2hg(pts)
     elif re.search('chatglm', model_type):
         state = convert_chatglm3_6b_pp2hg(pts)
+    elif re.search('mixtral', model_type):
+        state = convert_mixtral_8x_7b_pp2hg(pts)
     else:
         raise NotImplementedError
 
